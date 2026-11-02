@@ -112,10 +112,12 @@ main{min-width:0; padding-block:28px 80px; padding-left:max(16px, env(safe-area-
 /* ---------- chapter grid ---------- */
 .page{max-width:1320px; margin:0 auto}
 .col{max-width:760px; margin:0 auto}
-.chap{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,var(--side-w,580px)); gap:32px; align-items:start}
+.page:has(> .chap){max-width:none}
+.chap{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:32px; align-items:start}
+@media (min-width:1241px){ .chap .txt{max-width:760px} }
 .chap .txt{min-width:0}
 .chap aside{position:sticky; top:calc(72px + env(safe-area-inset-top,0px)); min-width:0}
-@media (max-width:1240px){ .chap{grid-template-columns:minmax(0,1fr)} .chap aside{position:static} .chap .txt{max-width:760px; margin:0 auto; width:100%} .chap aside{max-width:760px; margin:0 auto; width:100%} }
+@media (max-width:1240px){ .chap{grid-template-columns:minmax(0,1fr)} .chap aside{position:static} .chap .txt{max-width:760px; margin:0 auto; width:100%} .chap aside{max-width:none; margin:0; width:100%} }
 
 .eyebrow{font:700 12px var(--f-text); letter-spacing:.09em; text-transform:uppercase; color:var(--accent); margin-bottom:8px}
 .txt h1, .col h1{font-size:clamp(28px,4vw,38px); font-weight:900; letter-spacing:-.02em; margin-bottom:12px}
@@ -464,12 +466,6 @@ mark{background:var(--warn-soft); color:var(--ink); padding:0 1px; border-radius
 .term-grip{height:14px; display:flex; align-items:center; justify-content:center; cursor:ns-resize; touch-action:none; flex:none; outline:none}
 .term-grip span{width:44px; height:4px; border-radius:2px; background:var(--term-dim); opacity:.45}
 .term-grip:hover span, .term-grip.on span, .term-grip:focus-visible span{opacity:1; background:var(--t-path)}
-.term-wgrip{display:flex; align-items:center; justify-content:center; position:absolute; top:0; bottom:0; width:16px; cursor:ew-resize; touch-action:none; z-index:6}
-.term-wgrip.l{left:0} .term-wgrip.r{right:0}
-.term-wgrip span{width:5px; height:56px; border-radius:3px; background:var(--term-dim); opacity:.7}
-.term-wgrip:hover span, .term-wgrip.on span{opacity:1; background:var(--t-path)}
-.term-wrap.sidemode .term-wgrip.r{display:none}
-@media (max-width:700px){ .term-wgrip{display:none} }
 body.dragging, body.dragging *{user-select:none!important; -webkit-user-select:none!important}
 .term.tlight{--term:#FBFBF8; --term-ink:#1E2430; --term-dim:#5E6878; --t-user:#1F7A4D; --t-path:#21579B; --t-err:#B3261E; --t-sel:#DCE6F5; border-color:var(--line)}
 .term.tlight .term-top{background:#EEF0F3; border-bottom-color:#D9DDE3}
@@ -552,11 +548,12 @@ button.tchip.ok:hover{border-style:dashed}
 .rb-cause code, .rb-ver code{font-size:13px; white-space:pre-wrap; word-break:break-word}
 .rb-ver{display:grid; gap:4px}
 .rb-rel{margin:12px 0 14px}
+.tfull{margin:18px 0 26px}
 </style>
 
 <header class="bar">
   <button class="menu" id="menuBtn" aria-label="Zoznam kapitol">☰</button>
-  <a class="brand" href="#uvod"><span class="logo">$_</span><b>RHEL v praxi</b><span class="sub">RHEL 9 a 10 · verzia 2.11. 22:32</span></a>
+  <a class="brand" href="#uvod"><span class="logo">$_</span><b>RHEL v praxi</b><span class="sub">RHEL 9 a 10 · verzia 2.11. 22:37</span></a>
   <nav>
     <div class="overall" title="Hotové kapitoly"><span id="ovText">0 / 18</span><div class="track"><div class="fill" id="ovFill"></div></div></div>
     <a href="#terminal" data-nav="terminal" class="hide-s">Terminál</a>
@@ -575,7 +572,7 @@ button.tchip.ok:hover{border-style:dashed}
   <main id="view"></main>
 </div>
 
-<script>window.APP_VER='2.11. 22:32';</script>
+<script>window.APP_VER='2.11. 22:37';</script>
 
 <script>
 /* =========================================================
@@ -8327,8 +8324,6 @@ class Term {
       <div class="keybar" aria-label="Klávesy pre mobil">${[['Tab','Tab'],['↑','Up'],['↓','Down'],['Ctrl+C','CtrlC'],['-','-'],['|','|'],['/','/'],['~','~'],['>','>'],['$','$'],['*','*'],['"','"']].map(([l,k])=>`<button type="button" data-key="${esc(k)}">${esc(l)}</button>`).join('')}</div>
       <div class="term-grip" role="separator" aria-orientation="horizontal" aria-label="Zmeniť výšku terminálu" title="Potiahni: výška terminálu · dvojklik: pôvodná" tabindex="0"><span></span></div>
       ${opts.tasks?'<div class="term-tasks"></div>':''}
-      <div class="term-wgrip l" role="separator" aria-orientation="vertical" aria-label="Zmeniť šírku terminálu" title="Potiahni do strany: šírka terminálu · dvojklik: pôvodná"><span></span></div>
-      <div class="term-wgrip r" role="separator" aria-orientation="vertical" aria-label="Zmeniť šírku terminálu" title="Potiahni do strany: šírka terminálu · dvojklik: pôvodná"><span></span></div>
     </div>`;
     host.appendChild(this.el);
     this.out = $('.term-out', this.el); this.inp = $('input', this.el); this.ps = $('.ps', this.el);
@@ -8361,21 +8356,13 @@ class Term {
   applyOwnLook(){
     const t = $('.term', this.el); t.classList.toggle('tlight', UI.tt==='light'); t.style.setProperty('--tfs', (UI.fs||13)+'px');
     $('[data-act=theme]', this.el).textContent = UI.tt==='light' ? '☾ Tmavé' : '☀ Svetlé';
-    this.applyHeight(); this.applyWidth();
-  }
-  sideMode(){ return !!this.el.closest('.chap aside') && innerWidth > 1240; }
-  maxFreeW(){ const v = document.getElementById('view'); const w = v ? v.getBoundingClientRect().width : 0; return Math.max(320, (w > 0 ? w : innerWidth - (innerWidth > 960 ? 262 : 0)) - 32); }
-  applyWidth(){
-    const side = this.sideMode(); this.el.classList.toggle('sidemode', side);
-    const W = (UI.wf||{})[this.hk]; const st = this.el.style;
-    if (side || !W){ st.width=''; st.marginLeft=''; st.maxWidth=''; return; }
-    const w = Math.round(Math.min(W, this.maxFreeW())); st.width = w+'px'; st.maxWidth = 'none'; st.marginLeft = `calc((100% - ${w}px) / 2)`;
+    this.applyHeight();
   }
   static applyLook(){ document.querySelectorAll('.term-wrap').forEach(w=>{ if (w._term) w._term.applyOwnLook(); }); }
   applyHeight(){ const h = (UI.h||{})[this.hk]; const o = this.out.style; if (h){ o.height = h+'px'; o.maxHeight='none'; o.minHeight='0'; o.flex='none'; } else { o.height=''; o.maxHeight=''; o.minHeight=''; o.flex=''; } }
   bindGrips(){
     this.el._term = this;
-    const g = $('.term-grip', this.el), wg = $('.term-wgrip.l', this.el), wr = $('.term-wgrip.r', this.el);
+    const g = $('.term-grip', this.el);
     if (!Term._rz){ Term._rz = true; let t; window.addEventListener('resize', ()=>{ clearTimeout(t); t = setTimeout(()=>Term.applyLook(), 120); }); }
     const drag = (el, onMove, onEnd)=>{
       el.addEventListener('pointerdown', e=>{
@@ -8394,20 +8381,6 @@ class Term {
     }, ()=>{ saveUI(); Term.applyLook(); });
     g.addEventListener('dblclick', ()=>{ if (UI.h) delete UI.h[this.hk]; saveUI(); Term.applyLook(); });
     g.addEventListener('keydown', e=>{ if (e.key!=='ArrowUp' && e.key!=='ArrowDown') return; e.preventDefault(); const cur = this.out.getBoundingClientRect().height; UI.h = UI.h||{}; UI.h[this.hk] = Math.round(Math.max(120, Math.min(innerHeight*0.92, cur + (e.key==='ArrowDown'?40:-40)))); saveUI(); Term.applyLook(); });
-    const freeDrag = sign => d=>{
-      if (!d) return this.el.getBoundingClientRect().width;
-      UI.wf = UI.wf||{}; UI.wf[this.hk] = Math.round(Math.max(320, Math.min(this.maxFreeW(), d.st + sign*2*d.dx))); this.applyWidth();
-    };
-    drag(wg, d=>{
-      if (!this.sideMode()) return freeDrag(-1)(d);
-      const side = this.el.closest('.chap aside');
-      if (!d) return side.getBoundingClientRect().width;
-      const max = Math.max(420, innerWidth - 262 - 380);
-      UI.w = Math.round(Math.max(380, Math.min(max, d.st - d.dx))); applySideW();
-    }, ()=>saveUI());
-    drag(wr, freeDrag(1), ()=>saveUI());
-    const resetW = ()=>{ if (this.sideMode()){ UI.w = 0; applySideW(); } else if (UI.wf) delete UI.wf[this.hk]; saveUI(); Term.applyLook(); };
-    wg.addEventListener('dblclick', resetW); wr.addEventListener('dblclick', resetW);
   }
   markSeg(){ this.el.querySelectorAll('.seg button').forEach(b=>b.classList.toggle('on', +b.dataset.v===this.ver)); }
   setVer(v){ if (v===this.ver) return; this.ver=v; S.ver=v; save(); this.markSeg(); this.reset(true); }
@@ -8764,7 +8737,7 @@ function toast(term, msg){ const t = document.createElement('div'); t.className=
 /* ---------- TERMINAL PAGE ---------- */
 function terminalView(){
   const v = document.createElement('div'); v.className='page';
-  v.innerHTML = `<div class="col" style="max-width:1000px"><div class="eyebrow">Pieskovisko</div><h1>Terminál</h1><p class="lead" style="font-size:16px">Simulovaný server <code>rhel9-lab</code> alebo <code>rhel10-lab</code>. Nič tu nepokazíš a Reset vráti všetko späť. Funguje Tab, šípky, rúry, presmerovanie aj <code>vim súbor</code>. Napíš <code>help</code>.</p><div id="t"></div>
+  v.innerHTML = `<div class="col" style="max-width:1000px"><div class="eyebrow">Pieskovisko</div><h1>Terminál</h1><p class="lead" style="font-size:16px">Simulovaný server <code>rhel9-lab</code> alebo <code>rhel10-lab</code>. Nič tu nepokazíš a Reset vráti všetko späť. Funguje Tab, šípky, rúry, presmerovanie aj <code>vim súbor</code>. Napíš <code>help</code>.</p></div><div id="t" class="tfull"></div><div class="col" style="max-width:1000px">
   <div class="sect-h"><h2>Čo skúsiť</h2><p>Klikni a príkaz sa spustí.</p></div><div class="cs" id="try"></div></div>`;
   const term = new Term($('#t',v), {tall:true, title:'ssh admin@lab'});
   const tries = [

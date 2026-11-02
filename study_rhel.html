@@ -464,9 +464,9 @@ mark{background:var(--warn-soft); color:var(--ink); padding:0 1px; border-radius
 .term-grip{height:14px; display:flex; align-items:center; justify-content:center; cursor:ns-resize; touch-action:none; flex:none; outline:none}
 .term-grip span{width:44px; height:4px; border-radius:2px; background:var(--term-dim); opacity:.45}
 .term-grip:hover span, .term-grip.on span, .term-grip:focus-visible span{opacity:1; background:var(--t-path)}
-.term-wgrip{display:flex; align-items:center; justify-content:center; position:absolute; top:0; bottom:0; width:12px; cursor:ew-resize; touch-action:none; z-index:6}
+.term-wgrip{display:flex; align-items:center; justify-content:center; position:absolute; top:0; bottom:0; width:16px; cursor:ew-resize; touch-action:none; z-index:6}
 .term-wgrip.l{left:0} .term-wgrip.r{right:0}
-.term-wgrip span{width:4px; height:44px; border-radius:2px; background:var(--term-dim); opacity:.35}
+.term-wgrip span{width:5px; height:56px; border-radius:3px; background:var(--term-dim); opacity:.7}
 .term-wgrip:hover span, .term-wgrip.on span{opacity:1; background:var(--t-path)}
 .term-wrap.sidemode .term-wgrip.r{display:none}
 @media (max-width:700px){ .term-wgrip{display:none} }
@@ -556,7 +556,7 @@ button.tchip.ok:hover{border-style:dashed}
 
 <header class="bar">
   <button class="menu" id="menuBtn" aria-label="Zoznam kapitol">☰</button>
-  <a class="brand" href="#uvod"><span class="logo">$_</span><b>RHEL v praxi</b><span class="sub">RHEL 9 a 10 · systémový inžinier</span></a>
+  <a class="brand" href="#uvod"><span class="logo">$_</span><b>RHEL v praxi</b><span class="sub">RHEL 9 a 10 · verzia 2.11. 22:32</span></a>
   <nav>
     <div class="overall" title="Hotové kapitoly"><span id="ovText">0 / 18</span><div class="track"><div class="fill" id="ovFill"></div></div></div>
     <a href="#terminal" data-nav="terminal" class="hide-s">Terminál</a>
@@ -574,6 +574,8 @@ button.tchip.ok:hover{border-style:dashed}
   </aside>
   <main id="view"></main>
 </div>
+
+<script>window.APP_VER='2.11. 22:32';</script>
 
 <script>
 /* =========================================================
@@ -9860,6 +9862,10 @@ route = function(){
 window.removeEventListener('hashchange', _route5);
 window.addEventListener('hashchange', ()=>route());
 buildRail();
+
+/* ---------- verzia kurzu na úvode ---------- */
+const _homeView5 = homeView;
+homeView = function(){ const v = _homeView5(); v.insertAdjacentHTML('beforeend', `<p class="sub2" style="margin:28px 0 0;text-align:center">Verzia kurzu: ${esc(window.APP_VER||'?')}. Ak tu nevidíš najnovšiu, obnov stránku (Mac: Command + Shift + R).</p>`); return v; };
 
 /* ---------- prekreslenie po načítaní rozšírení ---------- */
 route();

@@ -206,6 +206,13 @@ textarea.search.exin{display:block; resize:vertical; min-height:44px; font:14px/
 .sh-com{color:var(--muted)}
 .sh-warn{display:inline-block; margin-left:6px; padding:0 6px; border-radius:6px; font-size:12px; color:var(--accent); border:1px solid currentColor}
 @media (max-width:760px){ .sh-rows{grid-template-columns:auto minmax(0,1fr)} .sh-t{grid-column:2; border-top:0 !important; color:var(--muted); padding-bottom:8px} .sh-ln{grid-row:span 2} .sh-c{white-space:pre-wrap; overflow-wrap:anywhere; max-width:none} }
+.logbox{border:1px solid var(--line); border-radius:10px; overflow:hidden; background:var(--bg)}
+.lb-cmd{padding:8px 12px; font:600 12.5px var(--f-mono); color:var(--muted); border-bottom:1px solid var(--line)}
+.lb-l{display:block; width:100%; text-align:left; padding:6px 12px; border:0; border-bottom:1px solid var(--line); background:transparent; color:var(--text); font:12.5px/1.5 var(--f-mono); white-space:pre-wrap; overflow-wrap:anywhere; cursor:pointer}
+.lb-l:last-child{border-bottom:0}
+.lb-l:hover{background:var(--surface)}
+.lb-l.no{background:color-mix(in srgb, var(--accent) 14%, transparent); text-decoration:line-through; text-decoration-color:var(--accent)}
+.lb-l.ok{background:color-mix(in srgb, var(--ok) 20%, transparent); box-shadow:inset 3px 0 0 var(--ok)}
 .explain{margin:14px 0; padding:14px; border-radius:10px; background:var(--surface); border:1px solid var(--line)}
 .ex-line{display:flex; flex-wrap:wrap; gap:6px; font:500 16px var(--f-mono); margin-bottom:12px}
 .tok{padding:3px 7px; border-radius:6px; background:var(--sunk); border-bottom:3px solid transparent; cursor:default}
@@ -589,7 +596,7 @@ button.tchip.ok:hover{border-style:dashed}
 
 <header class="bar">
   <button class="menu" id="menuBtn" aria-label="Zoznam kapitol">☰</button>
-  <a class="brand" href="#uvod"><span class="logo">$_</span><b>RHEL v praxi</b><span class="sub">RHEL 9 a 10 · verzia 6.11. 14:42</span></a>
+  <a class="brand" href="#uvod"><span class="logo">$_</span><b>RHEL v praxi</b><span class="sub">RHEL 9 a 10 · verzia 7.11. 13:58</span></a>
   <nav>
     <div class="overall" title="Hotové kapitoly"><span id="ovText">0 / 18</span><div class="track"><div class="fill" id="ovFill"></div></div></div>
     <a href="#terminal" data-nav="terminal" class="hide-s">Terminál</a>
@@ -608,7 +615,7 @@ button.tchip.ok:hover{border-style:dashed}
   <main id="view"></main>
 </div>
 
-<script>window.APP_VER='6.11. 14:42';</script>
+<script>window.APP_VER='7.11. 13:58';</script>
 
 <script>
 /* =========================================================
@@ -5924,6 +5931,131 @@ P.c_shellcheck = function(a){ return {e:'bash: shellcheck: command not found\n(s
 
 <script>
 /* =========================================================
+   SIMULÁTOR: journalctl do hĺbky
+   --since/--until (čas, today, yesterday, -1h, "10 min ago"), -b -1,
+   --list-boots, -o short-iso|cat|verbose|json, _PID= _COMM= _SYSTEMD_UNIT=,
+   -n po filtrovaní, -e, -r, --no-pager
+   ========================================================= */
+(function(){
+'use strict';
+const P = window.Machine.prototype;
+const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const z = x=>String(x).padStart(2,'0');
+const tsOf = line => { const m = line.match(/^([A-Z][a-z]{2}) +(\d{1,2}) (\d\d):(\d\d):(\d\d) /); if (!m) return null; const d = new Date(); d.setMonth(MON.indexOf(m[1]), +m[2]); d.setHours(+m[3], +m[4], +m[5], 0); return d; };
+P._jTime = function(s){
+  if (s==null) return null;
+  s = String(s).trim().replace(/^["']|["']$/g,'');
+  const now = new Date(); const d = new Date(now);
+  if (s==='now') return now;
+  if (s==='today'){ d.setHours(0,0,0,0); return d; }
+  if (s==='yesterday'){ d.setDate(d.getDate()-1); d.setHours(0,0,0,0); return d; }
+  if (s==='tomorrow'){ d.setDate(d.getDate()+1); d.setHours(0,0,0,0); return d; }
+  let m;
+  if ((m = s.match(/^-?(\d+)\s*(s|sec|m|min|h|hour|hours|d|day|days|w|week|weeks)?(?:\s+ago)?$/)) && (s.startsWith('-') || /ago$/.test(s))){ const mult = {s:1,sec:1,m:60,min:60,h:3600,hour:3600,hours:3600,d:86400,day:86400,days:86400,w:604800,week:604800,weeks:604800}[m[2]||'s']; return new Date(now - (+m[1])*mult*1000); }
+  if ((m = s.match(/^(\d+)\s*(minutes?|mins?|hours?|days?|seconds?|secs?)\s+ago$/))){ const u = m[2][0]; const mult = u==='m'?60:u==='h'?3600:u==='d'?86400:1; return new Date(now - (+m[1])*mult*1000); }
+  if ((m = s.match(/^(\d{4})-(\d\d)-(\d\d)(?:[ T](\d\d):(\d\d)(?::(\d\d))?)?$/))) return new Date(+m[1], +m[2]-1, +m[3], +(m[4]||0), +(m[5]||0), +(m[6]||0));
+  if ((m = s.match(/^(\d{1,2}):(\d\d)(?::(\d\d))?$/))){ d.setHours(+m[1], +m[2], +(m[3]||0), 0); return d; }
+  return undefined;
+};
+/* predchádzajúci beh servera (včera) */
+P._prevBoot = function(){
+  if (this.prevBootLines) return this.prevBootLines;
+  const y = new Date(); y.setDate(y.getDate()-1);
+  const T = (h,mi,s)=>`${MON[y.getMonth()]} ${z(y.getDate())} ${z(h)}:${z(mi)}:${z(s)}`;
+  const H = this.hostname;
+  return [
+    `${T(7,58,2)} ${H} kernel: Linux version ${this.kernel}`,
+    `${T(7,58,9)} ${H} systemd[1]: Started OpenSSH server daemon.`,
+    `${T(7,58,10)} ${H} systemd[1]: Started firewalld - dynamic firewall daemon.`,
+    `${T(13,12,44)} ${H} sshd[18211]: Accepted publickey for admin from 10.0.20.15 port 50211 ssh2`,
+    `${T(13,14,2)} ${H} sudo[18290]: admin : TTY=pts/0 ; PWD=/home/admin ; USER=root ; COMMAND=/usr/bin/dnf -y update`,
+    `${T(13,21,37)} ${H} dnf[18291]: Upgraded: kernel-${this.kernel.replace(/\.x86_64$/,'')}.x86_64`,
+    `${T(22,0,1)} ${H} CROND[30112]: (root) CMD (/usr/local/sbin/zaloha.sh /etc 14)`,
+    `${T(23,59,50)} ${H} sudo[31877]: admin : TTY=pts/1 ; PWD=/home/admin ; USER=root ; COMMAND=/usr/sbin/reboot`,
+    `${T(23,59,51)} ${H} systemd[1]: Stopping OpenSSH server daemon...`,
+    `${T(23,59,52)} ${H} systemd-logind[801]: System is rebooting.`,
+    `${T(23,59,58)} ${H} systemd[1]: Reached target System Reboot.`
+  ];
+};
+const origJ = P.c_journalctl;
+P.c_journalctl = function(a){
+  let since=null, until=null, fmt=null, pid=null, comm=null, boot=0, n=null, rev=false, grepJ=null, bad=null;
+  const args = [];
+  for (let i=0;i<a.length;i++){
+    const x = a[i]; let m;
+    if (x==='--since' || x==='-S'){ since = a[++i]; continue; }
+    if ((m = x.match(/^--since=(.*)$/))){ since = m[1]; continue; }
+    if (x==='--until' || x==='-U'){ until = a[++i]; continue; }
+    if ((m = x.match(/^--until=(.*)$/))){ until = m[1]; continue; }
+    if (x==='-o' || x==='--output'){ fmt = a[++i]; continue; }
+    if ((m = x.match(/^--output=(.*)$/))){ fmt = m[1]; continue; }
+    if ((m = x.match(/^_PID=(\d+)$/))){ pid = m[1]; continue; }
+    if ((m = x.match(/^_COMM=(.+)$/))){ comm = m[1]; continue; }
+    if ((m = x.match(/^_SYSTEMD_UNIT=(.+)$/))){ args.push('-u', m[1]); continue; }
+    if (x==='-b' || x==='--boot'){ if (a[i+1] && /^-?\d+$/.test(a[i+1])){ boot = +a[++i]; } continue; }
+    if ((m = x.match(/^(?:-b|--boot=)(-?\d+)$/))){ boot = +m[1]; continue; }
+    if (x==='-n' || x==='--lines'){ if (a[i+1] && /^\d+$/.test(a[i+1])) n = +a[++i]; else n = 10; continue; }
+    if ((m = x.match(/^(?:-n|--lines=)(\d+)$/))){ n = +m[1]; continue; }
+    if (x==='-e' || x==='--pager-end'){ n = n || 1000; continue; }
+    if (x==='-r' || x==='--reverse'){ rev = true; continue; }
+    if (x==='--no-pager' || x==='-q' || x==='--quiet' || x==='--no-hostname'){ continue; }
+    args.push(x);
+  }
+  // -xe, -xeu: -e znamená koniec
+  for (let i=0;i<args.length;i++){ if (/^-[a-z]*e[a-z]*$/.test(args[i]) && args[i]!=='-e'){ n = n || 1000; const rest = args[i].replace('e',''); if (rest==='-') args.splice(i--,1); else args[i] = rest; } }
+  if (args.includes('--list-boots')){
+    const y = new Date(); y.setDate(y.getDate()-1); const t = new Date();
+    const f = d => `${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()]} ${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}`;
+    return `IDX BOOT ID                          FIRST ENTRY                 LAST ENTRY\n -1 4e7a19c2b85d4f0e9a3c1b6d2f8e0a57 ${f(y)} 07:58:02 CET ${f(y)} 23:59:58 CET\n  0 9b1c7e3a2d5f4e6b8c0a1d3f5e7b9c2d ${f(t)} 08:00:01 CET ${f(t)} ${z(t.getHours())}:${z(t.getMinutes())}:${z(t.getSeconds())} CET\n`;
+  }
+  const sT = this._jTime(since), uT = this._jTime(until);
+  if (sT===undefined) return {e:`Failed to parse timestamp: ${since}\n(skús napr. --since "10:00", --since today, --since "1 hour ago", --since "2026-11-07 09:30")\n`, code:1};
+  if (uT===undefined) return {e:`Failed to parse timestamp: ${until}\n`, code:1};
+  let r;
+  if (boot < -1) return {e:'Data from the specified boot (-' + Math.abs(boot) + ') is not available: No such boot ID in journal\n', code:1};
+  if (boot === -1){
+    if (this.user!=='root' && !this.inGroup('wheel') && !this.inGroup('adm')) return origJ.call(this, args);
+    let L = this._prevBoot();
+    const ui = args.indexOf('-u'); if (ui>=0){ const u = this._svcName(args[ui+1]); L = L.filter(l=>l.includes(' '+u+'[') || (u==='sshd' && /OpenSSH|sshd\[/.test(l))); }
+    const gi = args.findIndex(x=>x==='-g'||x==='--grep'); if (gi>=0){ const re = new RegExp(args[gi+1],'i'); L = L.filter(l=>re.test(l)); }
+    if (args.includes('-k') || args.includes('--dmesg')) L = L.filter(l=>/ kernel: /.test(l));
+    if (args.some(x=>/^-p/.test(x))) L = L.filter(l=>/error|fail|Out of memory|denied/i.test(l));
+    r = L.join('\n') + (L.length ? '\n' : '');
+  } else r = origJ.call(this, args);
+  if (r && typeof r==='object' && r.code && !r.o) return r;
+  let text = typeof r==='string' ? r : (r.o||'');
+  const kern = args.includes('-k') || args.includes('--dmesg');
+  if (!(sT || uT || pid || comm || n!=null || rev || fmt || kern) ) return r;
+  let lines = text.split('\n').filter(l=>l!=='');
+  const isEntry = l => !!tsOf(l);
+  let entries = lines.filter(isEntry); const extra = lines.filter(l=>!isEntry(l) && !/^-- No entries --$/.test(l));
+  if (kern) entries = entries.filter(l=>/ kernel: /.test(l));
+  if (sT) entries = entries.filter(l=>tsOf(l) >= sT);
+  if (uT) entries = entries.filter(l=>tsOf(l) <= uT);
+  if (pid) entries = entries.filter(l=>new RegExp('\\['+pid+'\\]:').test(l));
+  if (comm) entries = entries.filter(l=>new RegExp(' '+comm.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(\\[\\d+\\])?: ').test(l));
+  entries.sort((x,y)=>tsOf(x)-tsOf(y));
+  if (n!=null) entries = entries.slice(-n);
+  if (rev) entries.reverse();
+  if (fmt){
+    const parse = l => { const m = l.match(/^(\S+ +\d+ \S+) (\S+) ([^:\[]+)(?:\[(\d+)\])?: (.*)$/); return m ? {ts:tsOf(l), host:m[2], comm:m[3], pid:m[4]||'', msg:m[5]} : null; };
+    const iso = d => `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}T${z(d.getHours())}:${z(d.getMinutes())}:${z(d.getSeconds())}+0100`;
+    if (fmt==='short-iso') entries = entries.map(l=>{ const p = parse(l); return p ? `${iso(p.ts)} ${p.host} ${p.comm}${p.pid?'['+p.pid+']':''}: ${p.msg}` : l; });
+    else if (fmt==='short-precise') entries = entries.map(l=>l.replace(/^(\S+ +\d+ \d\d:\d\d:\d\d)/, (x)=>x+'.'+String(Math.abs((l.length*7919)%1000000)).padStart(6,'0')));
+    else if (fmt==='cat') entries = entries.map(l=>{ const p = parse(l); return p ? p.msg : l; });
+    else if (fmt==='json') entries = entries.map(l=>{ const p = parse(l); return p ? JSON.stringify({__REALTIME_TIMESTAMP:String(p.ts.getTime()*1000), _HOSTNAME:p.host, SYSLOG_IDENTIFIER:p.comm, _PID:p.pid||undefined, MESSAGE:p.msg, PRIORITY:/error|fail|denied/i.test(p.msg)?'3':'6'}) : l; });
+    else if (fmt==='json-pretty' || fmt==='verbose') entries = entries.map(l=>{ const p = parse(l); if (!p) return l; const unit = p.comm==='systemd' ? ((p.msg.match(/^(\S+\.service)/)||[])[1]||'init.scope') : (p.comm.replace(/^\(|\)$/g,'')+'.service'); return `${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][p.ts.getDay()]} ${iso(p.ts).replace('T',' ').replace('+0100',' CET')} [s=4c1e…;i=${(p.ts.getTime()/1000|0).toString(16)}]\n    PRIORITY=${/error|fail|denied/i.test(p.msg)?3:6}\n    _HOSTNAME=${p.host}\n    SYSLOG_IDENTIFIER=${p.comm}\n${p.pid?`    _PID=${p.pid}\n    _COMM=${p.comm}\n`:''}    _SYSTEMD_UNIT=${unit}\n    _BOOT_ID=9b1c7e3a2d5f4e6b8c0a1d3f5e7b9c2d\n    MESSAGE=${p.msg}`; });
+    else if (!/^short/.test(fmt)) return {e:`Unknown output format '${fmt}'.\n(formáty: short, short-iso, short-precise, cat, verbose, json, json-pretty)\n`, code:1};
+  }
+  const out = entries.length ? entries.join('\n')+'\n' + extra.filter(l=>/^░░|^…/.test(l)).join('\n') + (extra.some(l=>/^░░|^…/.test(l))?'\n':'') : '-- No entries --\n';
+  return typeof r==='string' ? out : Object.assign({}, r, {o:out});
+};
+})();
+
+</script>
+
+<script>
+/* =========================================================
    Ukážkové skripty a dáta pre kapitolu 26 (čítanie a písanie skriptov)
    zdieľané: simulátor (súbory v ~/skripty/citaj) aj text kapitoly
    ========================================================= */
@@ -8811,6 +8943,360 @@ window.RUNBOOKS.push({id:'skript', t:'Skript nefunguje (ručne alebo v cron)', s
  first:[['ls -l SKRIPT','má právo x? kto je vlastník?'],['head -1 SKRIPT','shebang: #!/bin/bash?'],['cat -A SKRIPT | head','^M na konci riadkov = Windows'],['bash -n SKRIPT','syntax bez spustenia'],['bash -x SKRIPT ARG','kde presne sa to pokazí'],['echo $?','návratový kód po behu']],
  causes:[['Permission denied',['chmod +x SKRIPT','findmnt -no OPTIONS /tmp   # noexec? spusti cez bash SKRIPT']],['bad interpreter ^M',["sed -i 's/\\r$//' SKRIPT"]],['syntax error / unexpected end of file',['bash -n SKRIPT   # chýba then/do/fi/done/esac alebo úvodzovka']],['[: … unary operator expected',['premenné v [ ] do úvodzoviek: [ "$X" = a ]']],['V cron: command not found',['plné cesty (/usr/sbin/…) alebo PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin na začiatok skriptu']],['V cron nič nevidno',['>> /var/log/SKRIPT.log 2>&1 na koniec riadku v crontabe','journalctl -u crond --since today']],['Skript skončí potichu (set -e)',['bash -x SKRIPT   # posledný príkaz pred koncom zlyhal']],['Beží dvakrát naraz',['flock -n /run/SKRIPT.lock SKRIPT']]],
  verify:['bash -n SKRIPT','./SKRIPT ARG; echo $?','journalctl -t ZNAČKA --since today']});
+})();
+
+</script>
+
+<script>
+/* =========================================================
+   DIAGNOSTIKA: kapitola 27, mapa logov, tréning čítania logov,
+   rozhodovací strom „kde je problém“, incidenty naslepo (dáta)
+   ========================================================= */
+(function(){
+const H = '/home/admin';
+const ran = (m,n,pred)=>m.log.some(e=>e.name===n && (pred ? pred(e) : e.code===0));
+const has = (e, re)=>e.args.some(a=>re.test(a));
+const fileHas = (m, p, re)=>re.test((m.read(p)||'').trim());
+
+/* ---------- prvých 60 sekúnd ---------- */
+window.TRIAGE60 = [
+ ['uptime','ako dlho beží (nedávny reštart?) a záťaž (load vyšší ako počet CPU = preťaženie)'],
+ ['df -h','plný disk (100 %) rozbije takmer všetko: logy, dnf, databázy, prihlásenie'],
+ ['free -h','pamäť: málo „available“ a plný swap = OOM a pomalosť'],
+ ['systemctl --failed','ktoré služby spadli'],
+ ['sudo journalctl -p err -b','všetky chyby od posledného štartu'],
+ ['sudo journalctl --since "-15min"','čo sa dialo práve teraz (všetky služby)'],
+ ['ss -tulpn','čo počúva na ktorom porte'],
+ ['sudo dmesg -T | tail -20','jadro: disky, OOM killer, sieťová karta'],
+ ['last -n 5; sudo dnf history | head -5','kto sa naposledy prihlásil a čo sa naposledy inštalovalo (čo sa zmenilo?)']
+];
+
+/* ---------- vrstvy ---------- */
+window.LAYERS = [
+ {k:'siet', t:'Sieť a DNS', sym:'nedá sa pripojiť na iný server, „Name or service not known“, timeout', cmd:'ip -br a; ip route; ping -c2 BRÁNA; getent hosts MENO; nc -zv SERVER PORT', log:'journalctl -u NetworkManager'},
+ {k:'fw', t:'Firewall', sym:'lokálne (curl localhost) funguje, zvonku nie; „No route to host“', cmd:'sudo firewall-cmd --list-all; ss -tulpn', log:'journalctl -u firewalld; (logovanie zahodených: firewall-cmd --set-log-denied=all)'},
+ {k:'sluzba', t:'Služba', sym:'„Connection refused“, služba nebeží alebo padá', cmd:'systemctl status SLUŽBA; systemctl --failed', log:'journalctl -xeu SLUŽBA'},
+ {k:'konf', t:'Konfigurácia', sym:'služba po zmene/aktualizácii nenaštartuje', cmd:'httpd -t / sshd -t / nginx -t; rpm -V BALÍK; ls /etc/…/*.rpmnew', log:'journalctl -u SLUŽBA; dnf history'},
+ {k:'prava', t:'Práva a vlastníctvo', sym:'„Permission denied“ pri správnej ceste', cmd:'ls -l SÚBOR; namei -l CESTA; sudo -u POUŽÍVATEĽ test', log:'log aplikácie, journalctl -u SLUŽBA'},
+ {k:'selinux', t:'SELinux', sym:'„Permission denied“ hoci práva sú OK, 403, služba sa nenaviaže na port', cmd:'getenforce; ls -Z; sudo ausearch -m AVC -ts recent', log:'/var/log/audit/audit.log, sealert'},
+ {k:'disk', t:'Disk', sym:'„No space left on device“, „Read-only file system“, dnf padá', cmd:'df -h; df -i; sudo du -xsh /var/* | sort -h; sudo lsof +L1', log:'dmesg -T (chyby disku)'},
+ {k:'zdroje', t:'Pamäť a CPU', sym:'pomalosť, proces padá bez chyby, „Killed“', cmd:'top; free -h; ps aux --sort=-%mem | head', log:'dmesg -T | grep -i "out of memory"; journalctl -k'},
+ {k:'cas', t:'Čas', sym:'certifikát „not yet valid“, Kerberos/AD prihlásenie, zlé časy v logoch', cmd:'timedatectl; chronyc sources', log:'journalctl -u chronyd'},
+ {k:'ucet', t:'Účty a prihlásenie', sym:'„nepustí ma“, sudo nefunguje', cmd:'id MENO; sudo passwd -S MENO; sudo chage -l MENO; sudo faillock --user MENO', log:'/var/log/secure, journalctl -u sshd'},
+ {k:'balik', t:'Balíky a repozitáre', sym:'dnf chyba, chýba príkaz, po aktualizácii niečo nejde', cmd:'dnf repolist; dnf history; rpm -qf SÚBOR', log:'/var/log/dnf.log, dnf history info ID'},
+ {k:'boot', t:'Štart servera', sym:'emergency mode, server nenaštartuje, po reštarte niečo chýba', cmd:'systemctl --failed; findmnt --verify; systemctl is-enabled SLUŽBA', log:'journalctl -b -1 (predchádzajúci štart), journalctl -b -p err'}
+];
+
+/* ---------- mapa logov ---------- */
+window.LOG_MAP = [
+ {sv:'Systém celkovo', unit:'—', log:'/var/log/messages', j:'journalctl -b -p warning', cfg:'/etc/rsyslog.conf, /etc/systemd/journald.conf', check:'systemctl --failed', errs:[['Out of memory: Killed process','jadro zabilo proces pre nedostatok pamäte'],['No space left on device','plný disk (df -h, df -i)']]},
+ {sv:'Jadro (disky, sieťovka, OOM)', unit:'—', log:'dmesg', j:'journalctl -k', cfg:'/etc/sysctl.d/', check:'dmesg -T | tail', errs:[['I/O error, dev sda','chyba disku: hneď riešiť, zálohy'],['EXT4-fs / XFS ... remount read-only','súborový systém prepnutý len na čítanie po chybe'],['link is not ready / Link is Down','kábel/virtuálna sieťovka odpojená']]},
+ {sv:'Prihlásenia, sudo', unit:'sshd, sudo', log:'/var/log/secure', j:'journalctl -u sshd; journalctl _COMM=sudo', cfg:'/etc/ssh/sshd_config, /etc/sudoers.d/', check:'sudo sshd -t; last; lastb', errs:[['Failed password for','zlé heslo (veľa z jednej IP = útok)'],['Permission denied (publickey)','kľúč nesedí alebo práva ~/.ssh nie sú 700/600'],['user NOT in sudoers','používateľ nie je vo wheel ani v sudoers.d'],['pam_faillock: Consecutive login failures','účet zamknutý po zlých heslách']]},
+ {sv:'SELinux', unit:'auditd', log:'/var/log/audit/audit.log', j:'ausearch -m AVC -ts recent', cfg:'/etc/selinux/config', check:'getenforce; ls -Z; sealert -a /var/log/audit/audit.log', errs:[['avc: denied { read } … tcontext=…user_home_t','súbor má zlý kontext (presunutý cez mv): restorecon -Rv'],['avc: denied { name_bind } … src=8081','port nie je povolený pre službu: semanage port -a'],['avc: denied { name_connect }','služba sa nesmie pripájať von: setsebool -P httpd_can_network_connect on']]},
+ {sv:'Webový server Apache', unit:'httpd', log:'/var/log/httpd/error_log, access_log', j:'journalctl -u httpd', cfg:'/etc/httpd/conf/httpd.conf, conf.d/', check:'sudo httpd -t; curl -I localhost', errs:[['AH00072: make_sock: could not bind to address','port obsadený alebo zakázaný SELinuxom'],['AH01630: client denied by server configuration','Require all denied v konfigurácii'],['AH00035: access … denied (filesystem path …)','práva alebo SELinux na súbore'],['AH02565: Certificate and private key … do not match','kľúč nepatrí k certifikátu']]},
+ {sv:'nginx', unit:'nginx', log:'/var/log/nginx/error.log', j:'journalctl -u nginx', cfg:'/etc/nginx/nginx.conf, conf.d/', check:'sudo nginx -t', errs:[['bind() to 0.0.0.0:80 failed (98: Address already in use)','port drží iný proces (ss -tulpn)'],['connect() failed (13: Permission denied) while connecting to upstream','SELinux: setsebool -P httpd_can_network_connect on']]},
+ {sv:'Plánované úlohy', unit:'crond', log:'/var/log/cron', j:'journalctl -u crond', cfg:'/etc/crontab, /etc/cron.d/, crontab -l', check:'sudo crontab -l -u MENO', errs:[['(CRON) ERROR (getpwnam() failed)','používateľ v /etc/cron.d riadku neexistuje'],['CMD (...) a nič viac','úloha sa spustila: výstup hľadaj tam, kam ho presmeruje (>> log 2>&1)']]},
+ {sv:'Balíky dnf', unit:'—', log:'/var/log/dnf.log, dnf.rpm.log', j:'dnf history; dnf history info ID', cfg:'/etc/dnf/dnf.conf, /etc/yum.repos.d/', check:'dnf repolist; dnf check', errs:[['Cannot download repomd.xml','repozitár nedostupný (sieť, DNS, proxy, zrušený server)'],['Error: GPG check FAILED','chýba alebo nesedí GPG kľúč repozitára'],['No space left on device','plný /var (cache dnf)']]},
+ {sv:'Sieť', unit:'NetworkManager', log:'—', j:'journalctl -u NetworkManager', cfg:'/etc/NetworkManager/system-connections/', check:'nmcli dev status; ip -br a; ip route', errs:[['device (ens192): state change: … -> unavailable','linka dole (kábel, vSwitch)'],['dhcp4 (ens192): request timed out','DHCP server neodpovedá']]},
+ {sv:'Firewall', unit:'firewalld', log:'—', j:'journalctl -u firewalld; journalctl -k --grep REJECT', cfg:'/etc/firewalld/zones/', check:'firewall-cmd --list-all; firewall-cmd --get-active-zones', errs:[['ERROR: INVALID_SERVICE','preklep v mene služby'],['FINAL_REJECT / filter_IN_public_REJECT (po --set-log-denied=all)','paket zahodil firewall: na ktorý port a odkiaľ']]},
+ {sv:'Čas', unit:'chronyd', log:'—', j:'journalctl -u chronyd', cfg:'/etc/chrony.conf', check:'timedatectl; chronyc sources; chronyc tracking', errs:[['Can\'t synchronise: no selectable sources','žiadny NTP server nedostupný'],['System clock wrong by … seconds','hodiny boli posunuté']]},
+ {sv:'systemd a štart', unit:'systemd', log:'—', j:'journalctl -b; journalctl -b -1; systemctl status JEDNOTKA', cfg:'/etc/systemd/system/, /etc/fstab', check:'systemctl --failed; findmnt --verify; systemd-analyze blame', errs:[['status=203/EXEC','ExecStart neexistuje alebo nemá právo x'],['status=217/USER','User= v jednotke neexistuje'],['Result: oom-kill','proces zabil OOM killer'],['Failed to load environment files','chýba EnvironmentFile'],['Dependency failed for Local File Systems','zlý riadok v /etc/fstab → emergency mode']]},
+ {sv:'Databáza MariaDB/MySQL', unit:'mariadb', log:'/var/log/mariadb/mariadb.log', j:'journalctl -u mariadb', cfg:'/etc/my.cnf.d/', check:'systemctl status mariadb; ss -tlpn | grep 3306', errs:[['Can\'t create/write to file … (Errcode: 28 "No space left on device")','plný disk'],['Access denied for user','zlé meno/heslo alebo host']]},
+ {sv:'PostgreSQL', unit:'postgresql', log:'/var/lib/pgsql/data/log/', j:'journalctl -u postgresql', cfg:'/var/lib/pgsql/data/postgresql.conf, pg_hba.conf', check:'sudo -u postgres psql -c "select 1"', errs:[['no pg_hba.conf entry for host','klient nemá povolenie v pg_hba.conf'],['Directory … is missing or empty','databáza nebola inicializovaná: postgresql-setup --initdb']]},
+ {sv:'Kontajnery Podman', unit:'(meno).service pri Quadlete', log:'—', j:'podman logs KONTAJNER; journalctl -u MENO', cfg:'/etc/containers/systemd/, ~/.config/containers/systemd/', check:'podman ps -a; podman inspect', errs:[['Error: … port is already allocated','port na hostiteľovi už používa iný kontajner/proces'],['Permission denied pri bind mount','pridaj :Z k -v ceste (SELinux)']]},
+ {sv:'Pošta Postfix', unit:'postfix', log:'/var/log/maillog', j:'journalctl -u postfix', cfg:'/etc/postfix/main.cf', check:'postqueue -p; postfix check', errs:[['status=deferred (connect to … Connection timed out)','cieľový mail server nedostupný (firewall, port 25)']]},
+ {sv:'Audit (kto čo zmenil)', unit:'auditd', log:'/var/log/audit/audit.log', j:'ausearch -m USER_CMD; aureport -l', cfg:'/etc/audit/rules.d/', check:'auditctl -l', errs:[['type=USER_AUTH … res=failed','neúspešné overenie']]}
+];
+
+/* ---------- tréning čítania logov ---------- */
+window.LOG_TRAIN = [
+ {id:'l1', t:'Apache nenaštartuje', src:'sudo journalctl -u httpd -n 8', ask:'Ktorý riadok hovorí PRÍČINU?', lines:[
+  'Nov 07 09:12:01 web01 systemd[1]: Starting The Apache HTTP Server...',
+  'Nov 07 09:12:01 web01 httpd[4410]: AH00558: httpd: Could not reliably determine the server\'s fully qualified domain name, using 10.0.20.31. Set the \'ServerName\' directive globally to suppress this message',
+  'Nov 07 09:12:01 web01 httpd[4410]: (98)Address already in use: AH00072: make_sock: could not bind to address [::]:80',
+  'Nov 07 09:12:01 web01 httpd[4410]: (98)Address already in use: AH00072: make_sock: could not bind to address 0.0.0.0:80',
+  'Nov 07 09:12:01 web01 httpd[4410]: no listening sockets available, shutting down',
+  'Nov 07 09:12:01 web01 httpd[4410]: AH00015: Unable to open logs',
+  'Nov 07 09:12:01 web01 systemd[1]: httpd.service: Main process exited, code=exited, status=1/FAILURE',
+  'Nov 07 09:12:01 web01 systemd[1]: httpd.service: Failed with result \'exit-code\'.'], key:[2,3],
+  why:'AH00558 (ServerName) je len varovanie, je tam skoro vždy: <b>šum</b>. Príčina je „Address already in use“ na porte 80: port drží iný proces (často nginx alebo druhá inštancia). Riadky pod tým sú už len dôsledky.', next:'sudo ss -tlpn | grep :80'},
+ {id:'l2', t:'Web vracia 403', src:'sudo tail /var/log/httpd/error_log', ask:'Prečo dostáva klient 403?', lines:[
+  '[Sat Nov 07 10:01:22.114 2026] [core:notice] [pid 3010] SELinux policy enabled; httpd running as context system_u:system_r:httpd_t:s0',
+  '[Sat Nov 07 10:01:22.118 2026] [mpm_event:notice] [pid 3010] AH00489: Apache/2.4.62 (Red Hat Enterprise Linux) configured -- resuming normal operations',
+  '[Sat Nov 07 10:03:40.552 2026] [core:error] [pid 3015] (13)Permission denied: [client 10.0.20.15:53311] AH00035: access to /index.html denied (filesystem path \'/var/www/html/index.html\') because search permissions are missing on a component of the path',
+  '[Sat Nov 07 10:03:41.003 2026] [core:info] [pid 3015] [client 10.0.20.15:53311] AH01797: client denied by server configuration: /var/www/html/favicon.ico'], key:[2],
+  why:'„(13)Permission denied … filesystem path“ znamená, že Apache sa nedostal k súboru. Pri RHEL to býva SELinux kontext (súbor presunutý cez mv). Práva over cez <code>ls -l</code>, kontext cez <code>ls -Z</code>, dôkaz v <code>ausearch -m AVC -ts recent</code>. favicon riadok je druhoradý.', next:'ls -Z /var/www/html; sudo ausearch -m AVC -ts recent'},
+ {id:'l3', t:'SELinux zamietnutie', src:'sudo ausearch -m AVC -ts recent', ask:'Čo presne SELinux zakázal a komu?', lines:[
+  '----',
+  'time->Sat Nov  7 10:03:40 2026',
+  'type=PROCTITLE msg=audit(1794049420.552:812): proctitle=2F7573722F7362696E2F6874747064002D44464F524547524F554E44',
+  'type=SYSCALL msg=audit(1794049420.552:812): arch=c000003e syscall=262 success=no exit=-13 a0=ffffff9c items=0 ppid=3010 pid=3015 auid=4294967295 uid=48 gid=48 comm="httpd" exe="/usr/sbin/httpd" subj=system_u:system_r:httpd_t:s0 key=(null)',
+  'type=AVC msg=audit(1794049420.552:812): avc:  denied  { getattr } for  pid=3015 comm="httpd" path="/var/www/html/index.html" dev="dm-0" ino=1847213 scontext=system_u:system_r:httpd_t:s0 tcontext=unconfined_u:object_r:user_home_t:s0 tclass=file permissive=0'], key:[4],
+  why:'Riadok type=AVC: <b>kto</b> (comm="httpd", scontext …httpd_t), <b>čo</b> ({ getattr } na tclass=file), <b>na čom</b> (path=…/index.html) a <b>prečo</b> (tcontext …<b>user_home_t</b>, súbor z domovského adresára). Oprava: <code>restorecon -v /var/www/html/index.html</code>. SYSCALL a PROCTITLE sú pomocné.', next:'sudo restorecon -Rv /var/www/html'},
+ {id:'l4', t:'Prihlásenie cez SSH', src:'sudo journalctl -u sshd --since "08:00"', ask:'Prečo sa Jana nevie prihlásiť? (Útoky zvonku ignoruj.)', lines:[
+  'Nov 07 08:01:12 web01 sshd[2101]: Invalid user oracle from 45.155.205.233 port 41022',
+  'Nov 07 08:01:14 web01 sshd[2101]: Failed password for invalid user oracle from 45.155.205.233 port 41022 ssh2',
+  'Nov 07 08:15:30 web01 sshd[2210]: Accepted publickey for admin from 10.0.20.15 port 53122 ssh2: RSA SHA256:3kQ…',
+  'Nov 07 08:40:02 web01 sshd[2388]: pam_faillock(sshd:auth): Consecutive login failures for user jana account temporarily locked',
+  'Nov 07 08:40:02 web01 sshd[2388]: Failed password for jana from 10.0.20.44 port 50112 ssh2',
+  'Nov 07 08:41:07 web01 sshd[2392]: Connection closed by authenticating user jana 10.0.20.44 port 50120 [preauth]'], key:[3],
+  why:'pam_faillock: účet <b>jana</b> je dočasne zamknutý po opakovaných zlých heslách. Ďalšie „Failed password“ sú už dôsledok (aj správne heslo by teraz zlyhalo). Pokusy o „oracle“ z internetu sú bežný šum.', next:'sudo faillock --user jana; sudo faillock --user jana --reset'},
+ {id:'l5', t:'Aplikácia zmizla', src:'sudo dmesg -T | tail -6', ask:'Čo sa stalo s aplikáciou?', lines:[
+  '[Sat Nov  7 11:20:01 2026] java invoked oom-killer: gfp_mask=0x140cca(GFP_HIGHUSER_MOVABLE|__GFP_COMP), order=0, oom_score_adj=0',
+  '[Sat Nov  7 11:20:01 2026] Mem-Info:',
+  '[Sat Nov  7 11:20:01 2026] active_anon:912833 inactive_anon:24110 isolated_anon:0',
+  '[Sat Nov  7 11:20:01 2026] Out of memory: Killed process 5120 (java) total-vm:7340032kB, anon-rss:3612544kB, file-rss:0kB, shmem-rss:0kB, UID:991 pgtables:7400kB oom_score_adj:0',
+  '[Sat Nov  7 11:20:01 2026] oom_reaper: reaped process 5120 (java), now anon-rss:0kB, file-rss:0kB, shmem-rss:0kB'], key:[3],
+  why:'„Out of memory: Killed process 5120 (java)“: jadro minulo pamäť a zabilo najväčší proces. anon-rss 3,6 GB = koľko proces naozaj zaberal. V <code>systemctl status</code> uvidíš <b>Result: oom-kill</b>. Rieši sa limitom aplikácie (napr. -Xmx), nie reštartom.', next:'free -h; systemctl status reporting'},
+ {id:'l6', t:'Služba nenaštartuje', src:'systemctl status appka', ask:'Ktorý riadok hovorí, čo treba opraviť?', lines:[
+  '× appka.service - Interná aplikácia',
+  '     Loaded: loaded (/etc/systemd/system/appka.service; enabled; preset: disabled)',
+  '     Active: failed (Result: exit-code) since Sat 2026-11-07 09:30:12 CET; 3min ago',
+  '    Process: 4120 ExecStart=/opt/appka/bin/appka (code=exited, status=203/EXEC)',
+  '   Main PID: 4120 (code=exited, status=203/EXEC)',
+  'Nov 07 09:30:12 web01 systemd[1]: appka.service: Failed to execute /opt/appka/bin/appka: Permission denied',
+  'Nov 07 09:30:12 web01 systemd[1]: appka.service: Failed at step EXEC spawning /opt/appka/bin/appka: Permission denied'], key:[5,6],
+  why:'status=203/EXEC znamená, že systemd nevedel spustiť program z ExecStart. Riadok „Failed to execute … Permission denied“ hovorí prečo: súbor nemá právo x (alebo je na noexec oddiele / má zlý SELinux typ). Oprava: <code>chmod +x</code>.', next:'ls -l /opt/appka/bin/appka'},
+ {id:'l7', t:'Plný disk?', src:'df -h; df -i', ask:'Prečo hlási aplikácia „No space left on device“, hoci miesta je dosť?', lines:[
+  'Filesystem             Size  Used Avail Use% Mounted on',
+  '/dev/mapper/rhel-root   30G   12G   18G  40% /',
+  '/dev/mapper/rhel-var    10G  4.1G  5.9G  41% /var',
+  'Filesystem              Inodes   IUsed  IFree IUse% Mounted on',
+  '/dev/mapper/rhel-root  15728640 201113 15527527   2% /',
+  '/dev/mapper/rhel-var    5242880 5242880       0  100% /var'], key:[5],
+  why:'Miesta (df -h) je dosť, ale na /var došli <b>inody</b> (df -i 100 %). Každý súbor potrebuje inode: milióny malých súborov (session súbory, mailové fronty, cache) ich minú. Hľadaj adresár s najviac súbormi.', next:'sudo find /var -xdev -type f | cut -d/ -f2-4 | sort | uniq -c | sort -n | tail'},
+ {id:'l8', t:'Cron úloha', src:'sudo grep zaloha /var/log/cron', ask:'Prečo záloha nebeží?', lines:[
+  'Nov 07 02:30:01 web01 CROND[8812]: (root) CMD (zaloha.sh >> /var/log/zaloha.log 2>&1)',
+  'Nov 06 02:30:01 web01 CROND[7710]: (root) CMD (zaloha.sh >> /var/log/zaloha.log 2>&1)',
+  '--- sudo cat /var/log/zaloha.log ---',
+  '/bin/sh: line 1: zaloha.sh: command not found',
+  '/bin/sh: line 1: zaloha.sh: command not found'], key:[3,4],
+  why:'Cron úlohu spúšťa (CMD), takže cron funguje. Chyba je až vo výstupe: <b>command not found</b>, lebo cron má krátky PATH bez /usr/local/bin. Riešenie: plná cesta /usr/local/bin/zaloha.sh. Bez presmerovania výstupu do logu by si chybu nevidel.', next:'sudo crontab -l'},
+ {id:'l9', t:'Server po reštarte nenaštartoval', src:'journalctl -b -p err (v emergency mode)', ask:'Ktorý riadok je príčina (nie dôsledok)?', lines:[
+  'Nov 07 06:01:31 web01 systemd[1]: dev-disk-by\\x2duuid-7e2a1c94\\x2d3b5f.device: Job dev-disk-by\\x2duuid-7e2a1c94\\x2d3b5f.device/start timed out.',
+  'Nov 07 06:01:31 web01 systemd[1]: Timed out waiting for device /dev/disk/by-uuid/7e2a1c94-3b5f-4d8e-a1c2-9f0b6e7d3a15.',
+  'Nov 07 06:01:31 web01 systemd[1]: Dependency failed for /data.',
+  'Nov 07 06:01:31 web01 systemd[1]: Dependency failed for Local File Systems.',
+  'Nov 07 06:01:31 web01 systemd[1]: local-fs.target: Job local-fs.target/start failed with result \'dependency\'.'], key:[1],
+  why:'Pôvod je „Timed out waiting for device /dev/disk/by-uuid/7e2a…“: v /etc/fstab je UUID, ktorý neexistuje (preklep alebo vymenený disk). Všetko pod tým („Dependency failed…“) sú dôsledky. Porovnaj s <code>blkid</code>, oprav fstab, <code>mount -a</code>, <code>systemctl default</code>.', next:'blkid; grep -v "^#" /etc/fstab'},
+ {id:'l10', t:'dnf nejde', src:'sudo dnf install -y tree', ask:'Ktorý repozitár je problém?', lines:[
+  'Updating Subscription Management repositories.',
+  'Red Hat Enterprise Linux 9 for x86_64 - BaseOS (RPMs)       41 kB/s | 4.1 kB     00:00',
+  'Red Hat Enterprise Linux 9 for x86_64 - AppStream (RPMs)    45 kB/s | 4.5 kB     00:00',
+  'Firma nástroje                                              0.0  B/s |   0  B     00:30',
+  'Errors during downloading metadata for repository \'firma-tools\':',
+  '  - Curl error (6): Couldn\'t resolve host name for http://repo.stara-firma.local/tools/repodata/repomd.xml [Could not resolve host: repo.stara-firma.local]',
+  'Error: Failed to download metadata for repo \'firma-tools\': Cannot download repomd.xml: Cannot download repodata/repomd.xml: All mirrors were tried'], key:[5],
+  why:'BaseOS a AppStream sú v poriadku. Repo <b>firma-tools</b> ukazuje na server, ktorého meno sa nedá preložiť (DNS): zrušený server. Ak ho netreba, vypni ho (<code>dnf config-manager --set-disabled firma-tools</code>), inak oprav adresu.', next:'dnf repolist; cat /etc/yum.repos.d/firma-tools.repo'},
+ {id:'l11', t:'Pripojenie na databázu', src:'curl / aplikácia / nc', ask:'Ktorá hláška znamená, že server odpovedá, ale na porte nič nepočúva?', lines:[
+  'nc: connect to db01.firma.local port 5432 (tcp) failed: Connection refused',
+  'curl: (7) Failed to connect to 10.0.40.10 port 445 after 3001 ms: Connection timed out',
+  'ping: db02.firma.local: Name or service not known',
+  'ssh: connect to host 10.0.20.50 port 22: No route to host'], key:[0],
+  why:'<b>Connection refused</b> = server žije a odpovedal, ale na porte nič nepočúva (služba nebeží / iný port). <b>Timed out</b> = odpoveď neprišla (firewall zahodil, zlá trasa, server vypnutý). <b>Name or service not known</b> = DNS. <b>No route to host</b> = často firewall s REJECT alebo nedostupná sieť.', next:'ss -tlpn na cieľovom serveri'},
+ {id:'l12', t:'Čo sa zmenilo?', src:'sudo journalctl --since "09:40" --until "09:50"', ask:'Ktorý riadok vysvetľuje, prečo web od 9:45 nejde?', lines:[
+  'Nov 07 09:41:02 web01 sshd[3301]: Accepted publickey for peter from 10.0.20.17 port 51122 ssh2',
+  'Nov 07 09:42:18 web01 sudo[3330]:    peter : TTY=pts/1 ; PWD=/home/peter ; USER=root ; COMMAND=/usr/bin/vim /etc/httpd/conf.d/intranet.conf',
+  'Nov 07 09:44:51 web01 sudo[3361]:    peter : TTY=pts/1 ; PWD=/home/peter ; USER=root ; COMMAND=/usr/bin/systemctl restart httpd',
+  'Nov 07 09:44:51 web01 httpd[3370]: AH00526: Syntax error on line 12 of /etc/httpd/conf.d/intranet.conf:',
+  'Nov 07 09:44:51 web01 httpd[3370]: Invalid command \'Requre\', perhaps misspelled or defined by a module not included in the server configuration',
+  'Nov 07 09:44:51 web01 systemd[1]: httpd.service: Failed with result \'exit-code\'.',
+  'Nov 07 09:46:30 web01 chronyd[812]: Selected source 10.0.20.2'], key:[4],
+  why:'Časové okno okolo výpadku ukáže príbeh: Peter upravil intranet.conf, reštartoval httpd a ten padol na <b>preklep „Requre“</b> (má byť Require) na riadku 12. Takto (--since/--until, bez -u) zistíš, čo sa zmenilo, aj keď nevieš, ktorej službe sa to týka. Pred reštartom vždy <code>httpd -t</code>.', next:'sudo httpd -t'}
+];
+
+/* ---------- rozhodovací strom ---------- */
+window.TRIAGE_TREE = {
+ start:{q:'Čo je príznak?', o:[['Web alebo aplikácia nejde','web'],['Nedá sa prihlásiť (SSH, sudo)','login'],['Služba nenaštartuje / padá','svc'],['Server je pomalý','slow'],['Nedostanem sa na iný server','net'],['dnf / aktualizácia nejde','dnf'],['Po reštarte niečo nefunguje','boot']]},
+ web:{q:'Funguje <code>curl -I localhost</code> priamo na serveri?', o:[['Áno, lokálne ide, zvonku nie','web_fw'],['Nie, „Connection refused“','svc'],['Vracia 403','web_403'],['Vracia 500 / 502 / 503','web_5xx']]},
+ web_fw:{r:'Problém je medzi klientom a službou: <b>firewall</b> na serveri alebo v sieti, prípadne služba počúva len na 127.0.0.1.', c:['sudo firewall-cmd --list-all','ss -tlpn | grep -E ":80|:443"','z klienta: nc -zv SERVER 80'], rb:'web'},
+ web_403:{r:'Server odpovedá, ale nesmie čítať súbor: <b>práva</b>, <b>SELinux kontext</b> alebo <code>Require</code> v konfigurácii.', c:['ls -lZ /var/www/html','sudo ausearch -m AVC -ts recent','sudo tail /var/log/httpd/error_log'], rb:'prava'},
+ web_5xx:{r:'Web server beží, ale <b>aplikácia za ním</b> (PHP, proxy na backend, databáza) zlyháva.', c:['sudo tail -30 /var/log/httpd/error_log','systemctl status php-fpm','sudo ausearch -m AVC -ts recent   # httpd_can_network_connect?'], rb:'web'},
+ login:{q:'Kde to zlyháva?', o:[['Hneď „Connection refused / timed out“','net'],['Pýta heslo, ale nepustí','login_acc'],['Prihlási sa, ale sudo nejde','login_sudo']]},
+ login_acc:{r:'Sieť a sshd fungujú. Problém je <b>účet</b>: zamknutý, expirované heslo, faillock, alebo kľúč/práva ~/.ssh.', c:['sudo journalctl -u sshd --since "-30min"','sudo passwd -S MENO; sudo chage -l MENO','sudo faillock --user MENO'], rb:'login'},
+ login_sudo:{r:'Používateľ nie je v skupine <b>wheel</b> alebo v sudoers.d (často usermod -G bez -a).', c:['id MENO','sudo grep MENO /var/log/secure | tail'], rb:'login'},
+ svc:{r:'<b>Služba</b>: zisti presnú hlášku. systemd povie výsledok (exit-code, 203/EXEC, oom-kill…), journal povie prečo.', c:['systemctl status SLUŽBA','sudo journalctl -xeu SLUŽBA','sudo httpd -t / sshd -t (test konfigurácie)','sudo ausearch -m AVC -ts recent'], rb:'sluzba'},
+ slow:{q:'Čo ukáže <code>uptime</code> a <code>top</code>?', o:[['Vysoký load, proces na 100 % CPU','slow_cpu'],['Málo pamäte, swap plný','slow_mem'],['Load vysoký, CPU nie (vysoké wa)','slow_io']]},
+ slow_cpu:{r:'Jeden alebo viac procesov žerie CPU. Zisti, čo ich spúšťa (cron? služba?), oprav <b>príčinu</b> a až potom zabíjaj.', c:['top (P = podľa CPU)','ps -eo pid,ppid,user,%cpu,etime,cmd --sort=-%cpu | head','grep -r MENO /etc/cron* /var/spool/cron'], rb:'pomaly'},
+ slow_mem:{r:'Pamäť: zisti, kto ju má, a či už zasahoval OOM killer.', c:['free -h','ps aux --sort=-%mem | head','sudo dmesg -T | grep -i "out of memory"'], rb:'pamat'},
+ slow_io:{r:'Čaká sa na disk (wa v top). Plný alebo pomalý disk, chyby v dmesg.', c:['df -h; df -i','sudo dmesg -T | grep -iE "error|i/o"','iostat -x 2 (balík sysstat)'], rb:'disk'},
+ net:{q:'Čo hovorí chyba?', o:[['Name or service not known','net_dns'],['Connection refused','net_ref'],['Timed out / No route to host','net_route']]},
+ net_dns:{r:'<b>DNS</b>: meno sa nedá preložiť.', c:['getent hosts MENO','cat /etc/resolv.conf','nmcli dev show ens192 | grep DNS'], rb:'dns'},
+ net_ref:{r:'Cieľ žije, ale na porte nič nepočúva: rieš <b>službu na cieľovom</b> serveri.', c:['na cieli: ss -tlpn; systemctl status SLUŽBA'], rb:'sluzba'},
+ net_route:{r:'Pakety sa nedostanú: <b>trasa</b>, <b>firewall</b> (u teba, po ceste, na cieli) alebo cieľ nebeží.', c:['ip route get IP','ping -c2 BRÁNA','tracepath IP','sudo firewall-cmd --list-all (na cieli)'], rb:'siet'},
+ dnf:{r:'Prečítaj, ktorý <b>repozitár</b> zlyháva, a skontroluj miesto vo /var.', c:['sudo dnf install -y BALÍK (prečítaj chybu)','dnf repolist','df -h /var','cat /etc/yum.repos.d/*.repo'], rb:'dnf'},
+ boot:{rb2:1, r:'Niečo platilo len do reštartu (start bez enable, firewall bez --permanent, ip bez nmcli), alebo štart zlyhal. Porovnaj predchádzajúci a aktuálny štart.', c:['systemctl --failed','systemctl is-enabled SLUŽBA','sudo firewall-cmd --list-all --permanent','sudo journalctl -b -1 -p err; sudo journalctl -b -p err'], rb:'restart'}
+};
+
+/* ---------- incidenty naslepo: vágne tikety a dôkazy ---------- */
+window.BLIND = {
+ web:{L:'fw', t:['Ahoj, intranet od rána nejde. Píše, že sa nevie pripojiť. Kolega včera niečo menil na úvodnej stránke.','Používatelia hlásia, že intranet (web01) sa nenačíta. Dá sa s tým niečo urobiť?'], ev:[[/firewall-cmd/,'firewall'],[/ls .*-\w*Z|ausearch|sealert|audit\.log/,'SELinux kontext'],[/curl/,'test webu']]},
+ disk:{L:'disk', t:['Monitoring svieti načerveno pri web01, nejaký disk. Aplikácia hlási chyby pri zápise.','Na web01 nejde nič uložiť, aplikácia píše „No space left“.'], ev:[[/^(sudo )?df/,'df'],[/du /,'du (čo zaberá)'],[/lsof/,'otvorené zmazané súbory']]},
+ ssh:{L:'sluzba', t:['Nikto z nás sa od rána nevie dostať na server cez SSH. Konzola cez VMware ide.','SSH na server nefunguje, ani mne, ani kolegom. Včera sa vraj niečo menilo kvôli bezpečnosti.'], ev:[[/systemctl status sshd|journalctl .*sshd/,'stav sshd'],[/semanage port|ausearch|sealert/,'SELinux port'],[/firewall-cmd|ss -/,'port a firewall']]},
+ reboot:{L:'boot', t:['Po víkendovej údržbe (reštart) nám monitoring ukazuje server ako nedostupný.','Od reštartu nevidíme z web01 metriky v Grafane.'], ev:[[/systemctl (status|is-enabled) .*agent|--failed/,'stav agenta'],[/firewall-cmd/,'firewall']]},
+ user:{L:'ucet', t:['Jana sa nevie prihlásiť na server a vraj nemôže ani robiť správcovské veci.','Ahoj, Jane nejde prihlásenie na web01. Včera ju pridávali do nejakej novej skupiny.'], ev:[[/passwd -S|chage -l/,'stav účtu'],[/^(sudo )?id /,'skupiny']]},
+ perm:{L:'prava', t:['Aplikácia od presunu dát nevie ukladať exporty. V logu má niečo s prístupom.','Export z appky nefunguje od včera, keď sme sťahovali dáta na nový disk.'], ev:[[/ls -\w*l\w* .*\/srv|namei/,'práva cesty'],[/sudo -u appka/,'test ako appka']]},
+ dns:{L:'siet', t:['Aplikácia sa nevie pripojiť na databázu db01. Databáza beží, iné servery k nej idú.','Web01 nevidí db01, z mojho PC ju vidím.'], ev:[[/getent|nslookup|dig|host /,'preklad mena'],[/resolv\.conf|nmcli .*dns|nmcli dev show/,'DNS nastavenie']]},
+ cron:{L:'sluzba', t:['Všimli sme si, že nočné zálohy sa už nejaký čas nerobia. Ručne skript ide.','V adresári záloh nič nové od minulého týždňa.'], ev:[[/crontab -l|\/etc\/cron/,'crontab'],[/zaloha\.log|\/var\/log\/cron/,'log úlohy']]},
+ varfull:{L:'disk', t:['Aktualizácia na web01 padá s chybou, neviem čo s tým.','dnf update nejde dokončiť.'], ev:[[/^(sudo )?df/,'df'],[/du /,'du'],[/journalctl .*disk-usage/,'veľkosť journalu']]},
+ cas:{L:'cas', t:['Kolegom nejde prihlásenie doménovými účtami na tento server, inde ide.','Časy v logoch nesedia s ostatnými servermi a prihlásenie cez AD padá.'], ev:[[/timedatectl|^date|chronyc/,'čas a synchronizácia'],[/chrony\.conf/,'konfigurácia chrony']]},
+ repo:{L:'balik', t:['Nedá sa nič nainštalovať, dnf vypíše chybu.','Chcel som doinštalovať tree a nejde to.'], ev:[[/dnf (install|repolist)/,'chyba dnf'],[/yum\.repos\.d/,'súbory repozitárov']]},
+ oom:{L:'zdroje', t:['Reporting aplikácia každú chvíľu sama spadne. Hovoria, že „málo pamäte“.','Reporty sa negenerujú, služba je vždy po chvíli mŕtva.'], ev:[[/systemctl status reporting|journalctl .*reporting/,'stav služby'],[/dmesg|journalctl .*-k|free/,'pamäť / OOM']]},
+ update:{L:'konf', t:['Po včerajšej aktualizácii nejde web.','Od patchovania v noci je intranet dole.'], ev:[[/systemctl status httpd|journalctl .*httpd/,'stav httpd'],[/httpd -t|apachectl/,'test konfigurácie'],[/dnf history/,'čo sa zmenilo']]},
+ cert:{L:'konf', t:['Prehliadač hlási, že intranet nie je bezpečný.','Používatelia dostávajú varovanie o certifikáte na https://intranet.'], ev:[[/openssl|curl .*https/,'certifikát'],[/ssl\.conf|SSLCertificate/,'konfigurácia SSL']]},
+ envf:{L:'sluzba', t:['Po reštarte servera nebeží reportovacia služba.','Služba report je mŕtva, od upratovania servera.'], ev:[[/systemctl (status|cat) report|journalctl .*report/,'stav a definícia služby']]},
+ fstab:{L:'boot', t:['Server po reštarte nenabehol, na konzole niečo o emergency mode.'], ev:[[/journalctl .*-b|journalctl -xb/,'log štartu'],[/blkid|fstab|findmnt/,'fstab a disky']]},
+ cpu:{L:'zdroje', t:['Server je strašne pomalý, všetko trvá večnosť.','Web01 ledva reaguje, aj SSH sa pripája pomaly.'], ev:[[/^(top|ps|uptime)/,'procesy a záťaž'],[/cron/,'čo ich spúšťa']]},
+ lock:{L:'ucet', t:['Jana sa nevie prihlásiť, vraj zadáva správne heslo.','Ahoj, Jana ma nepustí na server, hovorí že heslo má dobre.'], ev:[[/faillock|journalctl .*sshd|\/var\/log\/secure/,'dôvod odmietnutia'],[/passwd -S|chage -l/,'stav účtu']]},
+ nas:{L:'siet', t:['Zálohy na NAS od reštartu nefungujú, NAS je v poriadku.','Server sa nevie dostať na NAS (10.0.40.10).'], ev:[[/ip route|ip r\b|route get/,'smerovanie'],[/ping|tracepath|nc /,'test dostupnosti']]}
+};
+window.BLIND_PAIRS = ["web+disk","web+ssh","web+reboot","web+user","web+perm","web+dns","web+cron","web+varfull","web+cas","web+repo","web+oom","web+envf","web+cpu","web+lock","web+nas","disk+repo","disk+update","disk+cert","disk+envf","disk+cpu","ssh+reboot","ssh+user","ssh+perm","ssh+dns","ssh+cron","ssh+cas","ssh+oom","ssh+update","ssh+cert","ssh+envf","ssh+cpu","ssh+lock","ssh+nas","reboot+user","reboot+perm","reboot+dns","reboot+cron","reboot+varfull","reboot+cas","reboot+repo","reboot+oom","reboot+update","reboot+cert","reboot+envf","reboot+cpu","reboot+lock","reboot+nas","user+perm","user+dns","user+cron","user+varfull","user+cas","user+repo","user+oom","user+update","user+cert","user+envf","user+cpu","user+nas","perm+dns","perm+cron","perm+varfull","perm+cas","perm+repo","perm+oom","perm+update","perm+cert","perm+envf","perm+cpu","perm+lock","perm+nas","dns+cron","dns+varfull","dns+cas","dns+repo","dns+oom","dns+update","dns+cert","dns+envf","dns+cpu","dns+lock","dns+nas","cron+varfull","cron+cas","cron+repo","cron+oom","cron+update","cron+cert","cron+envf","cron+cpu","cron+lock","cron+nas","varfull+nas","cas+repo","cas+oom","cas+update","cas+cert","cas+envf","cas+cpu","cas+lock","cas+nas","repo+oom","repo+update","repo+cert","repo+envf","repo+cpu","repo+lock","repo+nas","oom+update","oom+cert","oom+envf","oom+cpu","oom+lock","oom+nas","update+envf","update+cpu","update+lock","update+nas","cert+nas","envf+cpu","envf+lock","envf+nas","cpu+lock","cpu+nas","lock+nas"];
+
+/* ---------- kapitola 27 ---------- */
+window.CHAPTERS.push({n:27, title:'Hľadanie chýb: metóda, logy a journalctl', short:'Hľadanie chýb',
+goal:'Pri akomkoľvek probléme vedieť, kde začať, ktorý log otvoriť, ako v ňom nájsť jeden dôležitý riadok a ako zistiť, čo sa zmenilo. Bez návodu, len podľa príznaku.',
+body:[
+['p','Skúsený správca nevie naspamäť všetky chyby. Má <b>metódu</b>: vždy rovnaké prvé kroky, rozdelí problém na vrstvy a hľadá <b>dôkaz</b>, konkrétny riadok v logu, ktorý vysvetľuje príznak. Až potom opravuje. Táto kapitola je o tejto metóde a o logoch. Precvičíš ju v nástrojoch <a href="#detektiv">Detektív</a> (náhodné poruchy naslepo), <a href="#citanie-logov">Čítanie logov</a> a <a href="#diagnostika">Diagnostika</a> (mapa logov a rozhodovací strom).'],
+['h','Metóda v 6 krokoch'],
+['table',['Krok','Čo robíš','Otázky'],[
+ ['1. Príznak','zisti presne, čo nejde','Čo presne? Odkedy? Komu (všetkým, jednému)? Odkiaľ? Aká je presná chybová hláška?'],
+ ['2. Prvých 60 sekúnd','spusti pevný zoznam kontrol','Nie je plný disk, pamäť, spadnutá služba, chyby v journale?'],
+ ['3. Čo sa zmenilo','nájdi poslednú zmenu','Reštart? Aktualizácia (dnf history)? Kto bol prihlásený (last, sudo v journale)? Úprava konfigurácie?'],
+ ['4. Vrstva','zúž problém','Sieť, firewall, služba, konfigurácia, práva, SELinux, disk, pamäť, čas, účet?'],
+ ['5. Dôkaz','nájdi riadok v logu','Ktorý riadok vysvetľuje príznak? Je to príčina, alebo len dôsledok?'],
+ ['6. Oprava a overenie','oprav príčinu, nie príznak','Funguje to? Prežije to reštart? Zapísal som, čo som spravil?']]],
+['warn','Najčastejšia chyba: opravovať naslepo (reštart, chmod 777, setenforce 0) skôr, než nájdeš dôkaz. Problém sa vráti a nevieš prečo. A <code>setenforce 0</code> či <code>systemctl stop firewalld</code> na produkcii nie sú oprava.'],
+['h','Prvých 60 sekúnd na serveri'],
+['p','Tento zoznam spusti <b>vždy</b>, keď nevieš, čo sa deje. Za minútu vylúčiš polovicu príčin.'],
+['table',['Príkaz','Čo hľadáš'], window.TRIAGE60.map(([c,d])=>['<code>'+c+'</code>', d])],
+['cmd','uptime; df -h; free -h; systemctl --failed','prvé štyri naraz'],
+['h','Vrstvy: kde môže byť problém'],
+['table',['Vrstva','Typický príznak','Prvé príkazy','Log'], window.LAYERS.map(l=>[l.t, l.sym, '<code>'+l.cmd+'</code>', '<code>'+l.log+'</code>'])],
+['tip','Rýchle rozdelenie: funguje to <b>lokálne</b> na serveri (<code>curl localhost</code>, <code>ss -tlpn</code>)? Áno → problém je medzi (firewall, sieť, DNS). Nie → problém je na serveri (služba, konfigurácia, práva, SELinux).'],
+['h','Kde sú logy'],
+['p','RHEL má dva systémy, ktoré bežia vedľa seba: <b>journal</b> (systemd-journald, binárny, čítaš ho cez <code>journalctl</code>) a <b>textové súbory</b> v <code>/var/log</code> (rsyslog ich zapisuje z journalu). Veľa služieb navyše píše vlastné súbory.'],
+['table',['Súbor','Čo v ňom je'],[
+ ['<code>/var/log/messages</code>','všeobecné správy systému a služieb (okrem prihlásení)'],
+ ['<code>/var/log/secure</code>','prihlásenia, sshd, sudo, zmeny hesiel'],
+ ['<code>/var/log/audit/audit.log</code>','audit: SELinux zamietnutia (AVC), prihlásenia, príkazy cez sudo'],
+ ['<code>/var/log/cron</code>','kedy cron čo spustil (nie výstup úlohy)'],
+ ['<code>/var/log/dnf.log</code>, <code>dnf.rpm.log</code>','inštalácie a aktualizácie'],
+ ['<code>/var/log/boot.log</code>','výpis zo štartu'],
+ ['<code>/var/log/maillog</code>','pošta (postfix)'],
+ ['<code>/var/log/httpd/</code>, <code>/var/log/nginx/</code>','webový server: error_log/error.log a access_log'],
+ ['<code>/var/log/journal/</code>','trvalý journal (ak existuje, prežije reštart)']]],
+['p','Úplný zoznam podľa služieb s typickými hláškami nájdeš v <a href="#diagnostika">mape logov</a>.'],
+['h','Anatómia riadku v logu'],
+['pre','Nov 07 09:44:12 web01 systemd[1]: agent.service: Failed at step EXEC spawning /opt/monitoring/bin/agent: Permission denied\n└──── čas ─────┘ └host┘ └proces[PID]┘ └──────────────────────── správa ────────────────────────┘'],
+['list',['<b>Čas</b>: porovnaj s časom, keď problém začal (od kedy?)','<b>Proces[PID]</b>: kto správu napísal. systemd[1] hovorí o službe, httpd[3370] je samotná služba','<b>Správa</b>: hľadaj slová error, failed, denied, refused, timeout, cannot, unable, invalid','Prvá chyba v čase je zvyčajne <b>príčina</b>, ďalšie sú <b>dôsledky</b> (Dependency failed, Failed with result…)']],
+['h','journalctl do hĺbky'],
+['table',['Príkaz','Čo spraví'],[
+ ['<code>journalctl -u httpd</code>','len jedna služba'],
+ ['<code>journalctl -xeu httpd</code>','koniec logu služby s vysvetlivkami (-x), skočí na koniec (-e)'],
+ ['<code>journalctl -f</code>, <code>-fu httpd</code>','sleduj naživo (Ctrl+C koniec): spusti v druhom okne a v prvom skúšaj'],
+ ['<code>journalctl -p err</code>','priorita err a horšia (crit, alert, emerg). <code>-p warning</code> pridá varovania'],
+ ['<code>journalctl -b</code>','od posledného štartu. <code>-b -1</code> predchádzajúci štart (čo sa stalo pred reštartom/pádom)'],
+ ['<code>journalctl --list-boots</code>','zoznam štartov, ktoré journal pozná'],
+ ['<code>journalctl --since "09:40" --until "09:50"</code>','časové okno: všetko, čo sa dialo okolo výpadku'],
+ ['<code>--since today</code>, <code>yesterday</code>, <code>"-1h"</code>, <code>"30 min ago"</code>, <code>"2026-11-07 09:30"</code>','formáty času'],
+ ['<code>journalctl -n 50</code>','posledných 50 riadkov'],
+ ['<code>journalctl -r</code>','od najnovšieho'],
+ ['<code>journalctl -g "Failed|denied"</code>','filtrovanie správ regulárnym výrazom (--grep)'],
+ ['<code>journalctl -k</code>','len správy jadra (ako dmesg, ale aj z minulých štartov s -b -1)'],
+ ['<code>journalctl _PID=1203</code>, <code>_COMM=sudo</code>','podľa procesu alebo programu'],
+ ['<code>journalctl -t zaloha</code>','podľa značky (logger -t)'],
+ ['<code>journalctl -o short-iso</code>, <code>-o verbose</code>, <code>-o cat</code>, <code>-o json</code>','iný formát: presný dátum / všetky polia / len správa / pre skripty'],
+ ['<code>journalctl --disk-usage</code>, <code>--vacuum-size=500M</code>','koľko miesta zaberá, zmazanie starých záznamov']]],
+['tip','Najsilnejšia otázka pri výpadku: <b>čo sa dialo práve vtedy?</b> <code>sudo journalctl --since "09:40" --until "09:50"</code> bez <code>-u</code> ukáže všetky služby a prihlásenia naraz. Často uvidíš, že niekto tesne pred výpadkom niečo upravil (sudo riadky).'],
+['warn','Ak <code>journalctl -b -1</code> hlási, že predchádzajúci štart nepozná, journal nie je trvalý (beží len v pamäti). Zapneš ho: <code>sudo mkdir -p /var/log/journal; sudo systemctl restart systemd-journald</code> (alebo <code>Storage=persistent</code> v /etc/systemd/journald.conf). Na RHEL 9 a 10 je trvalý zvyčajne už od inštalácie.'],
+['h','Výsledky systemd: čo znamená status'],
+['table',['V systemctl status','Význam','Ďalší krok'],[
+ ['<code>status=203/EXEC</code>','program z ExecStart neexistuje alebo sa nedá spustiť','<code>ls -l</code> cesty, chmod +x, SELinux'],
+ ['<code>status=217/USER</code>','používateľ z User= neexistuje','<code>id MENO</code>'],
+ ['<code>status=200/CHDIR</code>','WorkingDirectory neexistuje',''],
+ ['<code>Result: resources</code>','chýba EnvironmentFile, nedá sa vytvoriť adresár…','journalctl -u'],
+ ['<code>Result: oom-kill</code>','proces zabil OOM killer','free -h, dmesg'],
+ ['<code>Result: timeout</code>','služba nenaštartovala v časovom limite','log služby: na čo čakala?'],
+ ['<code>Result: signal</code>, <code>core-dump</code>','proces spadol (segfault) alebo ho niekto zabil','coredumpctl, journalctl'],
+ ['<code>status=1/FAILURE</code>','program sám skončil chybou: dôvod je v jeho riadkoch nad tým','journalctl -u SLUŽBA'],
+ ['<code>start-limit-hit</code>','služba padala príliš často, systemd ju prestal skúšať','oprav príčinu, potom <code>systemctl reset-failed SLUŽBA</code>']]],
+['h','Slovník chybových hlášok'],
+['table',['Hláška','Čo znamená','Kam ďalej'],[
+ ['Permission denied','práva, vlastník alebo SELinux','ls -l, namei -l, ls -Z, ausearch -m AVC'],
+ ['No such file or directory','zlá cesta, chýba súbor, preklep','ls, which, rpm -qf'],
+ ['Connection refused','cieľ žije, port je zatvorený (služba nebeží)','ss -tlpn na cieli'],
+ ['Connection timed out','odpoveď neprišla: firewall zahodil, zlá trasa, cieľ vypnutý','ping, ip route get, tracepath'],
+ ['No route to host','sieť nedostupná alebo firewall s REJECT','firewall-cmd --list-all, ip route'],
+ ['Name or service not known / Could not resolve host','DNS','getent hosts, resolv.conf'],
+ ['Address already in use','port obsadil iný proces','ss -tlpn | grep :PORT'],
+ ['No space left on device','plný disk alebo inody','df -h, df -i'],
+ ['Read-only file system','súborový systém prepnutý len na čítanie (chyba disku)','dmesg -T, mount'],
+ ['Too many open files','limit otvorených súborov (LimitNOFILE)','ulimit -n, systemctl show -p LimitNOFILE'],
+ ['avc: denied','SELinux zakázal operáciu','ausearch -m AVC, sealert, restorecon, semanage, setsebool'],
+ ['Out of memory: Killed process','OOM killer','free -h, limity aplikácie'],
+ ['certificate has expired / not yet valid','certifikát vypršal alebo zlý čas','openssl x509 -dates, timedatectl'],
+ ['Authentication failure / Account locked','heslo, zámok faillock, expirácia','faillock, passwd -S, chage -l'],
+ ['segfault','program spadol','journalctl, coredumpctl, aktualizácia balíka']]],
+['h','Hľadanie v súboroch logov'],
+['pre',`sudo grep -i "error\\|fail\\|denied" /var/log/messages | tail -20
+sudo grep -h "Nov  7 09:4" /var/log/messages /var/log/secure   # všetko o 9:40-9:49
+sudo tail -f /var/log/httpd/error_log                          # naživo
+sudo grep -c "Failed password" /var/log/secure                 # koľko zlých hesiel
+sudo zgrep "kernel" /var/log/messages-*.gz 2>/dev/null         # aj v starých (rotovaných) logoch
+sudo ausearch -m AVC -ts today                                 # SELinux dnes
+sudo ausearch -m USER_CMD -ts recent                           # kto čo spustil cez sudo`],
+['tip','Logy sa rotujú (logrotate): staré sú v <code>/var/log/messages-20261101</code> a podobne. Keď hľadáš staršiu udalosť, pozri aj tie.']
+],
+quiz:[
+ {q:'Web nejde zvonku, ale <code>curl localhost</code> na serveri vráti stránku. Kde je problém najpravdepodobnejšie?',o:['Apache nebeží','Konfigurácia Apache','Firewall alebo sieť medzi klientom a serverom','SELinux kontext súborov'],a:2,w:'Lokálne funguje = služba, konfigurácia, práva aj SELinux sú v poriadku. Zostáva cesta medzi: firewall, sieť, DNS.'},
+ {q:'V logu je 5 riadkov chýb. Ktorý je zvyčajne príčina?',o:['Posledný','Prvý v čase','Ten najdlhší','Ten s „Failed with result“'],a:1,w:'Prvá chyba spôsobí ďalšie. „Dependency failed“ a „Failed with result“ sú dôsledky.'},
+ {q:'Server sa v noci sám reštartoval. Ako zistíš, čo sa dialo tesne pred tým?',o:['journalctl -b','journalctl -b -1 -n 50','dmesg','systemctl --failed'],a:1,w:'-b -1 = predchádzajúci štart, -n 50 jeho posledných 50 riadkov. -b a dmesg ukazujú len aktuálny štart.'},
+ {q:'Čo znamená <code>Connection refused</code>?',o:['Firewall paket zahodil','DNS nepozná meno','Cieľový server odpovedal, ale na porte nič nepočúva','Zlé heslo'],a:2,w:'Pri zahodení firewallom by bol timeout, pri REJECT zvyčajne „No route to host“.'},
+ {q:'<code>systemctl status</code> ukazuje <code>status=203/EXEC</code>. Čo skontroluješ?',o:['Pamäť servera','Či program z ExecStart existuje a má právo x','Firewall','Či beží databáza'],a:1,w:'203/EXEC = systemd nevedel spustiť program. Častá príčina: chýba chmod +x, zlá cesta, noexec, SELinux typ.'},
+ {q:'Ako zobrazíš všetko, čo sa na serveri dialo medzi 9:40 a 9:50, bez ohľadu na službu?',o:['journalctl -u all --time 9:40-9:50','journalctl --since "09:40" --until "09:50"','grep 9:4 /var/log/*','dmesg --since 09:40'],a:1,w:'Bez -u ukáže journal všetky služby aj sudo riadky: vidíš, kto čo menil.'},
+ {q:'Aplikácia hlási „No space left on device“, ale <code>df -h</code> ukazuje 40 %. Čo ďalej?',o:['df -i (inody)','Reštart servera','free -h','Zväčšiť disk'],a:0,w:'Došli inody: priveľa malých súborov. df -i to ukáže.'},
+ {q:'Ktorý zásah je pri hľadaní príčiny 403 na RHEL v poriadku?',o:['setenforce 0 a nechať tak','chmod -R 777 /var/www','ls -Z a ausearch -m AVC, potom restorecon','vypnúť firewalld'],a:2,w:'Najprv dôkaz (AVC), potom cielená oprava. Vypínanie ochrán problém skryje a otvorí bezpečnostnú dieru.'}
+],
+ex:[
+ {t:'Služba <code>agent</code> nebeží. Nájdi v journale, s akým kódom (status=…) zlyhala, a zapíš len ten kód (napr. <code>1/FAILURE</code>) do súboru <code>~/agent.txt</code>.',h:'sudo journalctl -u agent alebo systemctl status agent; hľadaj status=',sol:'sudo journalctl -u agent\necho "203/EXEC" > ~/agent.txt',check:m=>fileHas(m, H+'/agent.txt', /^203\/EXEC$/)},
+ {t:'Niekto sa ráno pokúšal prihlásiť ako root. Nájdi v journale sshd jeho IP adresu a zapíš ju do <code>~/utocnik.txt</code>.',h:'sudo journalctl -u sshd; hľadaj Failed password for root from …',sol:'sudo journalctl -u sshd -g "Failed password"\necho 203.0.113.77 > ~/utocnik.txt',check:m=>fileHas(m, H+'/utocnik.txt', /^203\.0\.113\.77$/)},
+ {t:'Zobraz len chyby (priorita <b>err</b> a horšia) z času medzi <b>7:00</b> a <b>8:00</b>.',h:'journalctl -p err --since "07:00" --until "08:00"',sol:'sudo journalctl -p err --since "07:00" --until "08:00"',check:m=>ran(m,'journalctl',e=>e.args.includes('-p') && e.args.some(a=>/^0?7:00/.test(a)) && e.args.some(a=>/^0?8:00/.test(a)))},
+ {t:'Server bol v noci reštartovaný. Zisti z <b>predchádzajúceho štartu</b>, ktorý používateľ dal príkaz na reštart, a zapíš jeho meno do <code>~/kto.txt</code>.',h:'sudo journalctl -b -1; hľadaj sudo … COMMAND=/usr/sbin/reboot',sol:'sudo journalctl --list-boots\nsudo journalctl -b -1 -n 5\necho admin > ~/kto.txt',check:m=>ran(m,'journalctl',e=>e.args.includes('-1') || e.args.includes('-b-1') || e.args.some(a=>/--boot=-1/.test(a))) && fileHas(m, H+'/kto.txt', /^admin$/)},
+ {t:'Vypíš posledné 3 záznamy služby <code>sshd</code> s presným dátumom (formát ISO).',h:'-o short-iso a -n 3',sol:'sudo journalctl -u sshd -o short-iso -n 3',check:m=>ran(m,'journalctl',e=>e.args.includes('short-iso') && e.args.some(a=>/^(-n)?3$/.test(a)) && e.args.includes('sshd'))},
+ {t:'Zapíš do journalu správu <code>údržba začala</code> so značkou <code>udrzba</code> a potom zobraz len správy s touto značkou.',h:'logger -t …; journalctl -t …',sol:'logger -t udrzba "údržba začala"\njournalctl -t udrzba',check:m=>(m._ulog||[]).some(x=>x.tag==='udrzba') && ran(m,'journalctl',e=>e.args.includes('-t') && e.args.includes('udrzba'))}
+]});
+
+/* ---------- dril ---------- */
+window.DRILL.push(
+ {id:'d_failed', ch:27, q:'Vypíš služby, ktoré zlyhali.', a:'systemctl --failed', w:'Prvý krok pri každom probléme.', check:m=>ran(m,'systemctl',e=>e.args.includes('--failed') || (e.args.includes('list-units') && e.args.some(a=>/--state=failed/.test(a))))},
+ {id:'d_err', ch:27, q:'Zobraz všetky chyby (priorita err a horšia) od posledného štartu.', a:'sudo journalctl -p err -b', w:'-p err = err, crit, alert, emerg.', check:m=>ran(m,'journalctl',e=>e.args.includes('-p') && e.args.includes('err') && e.args.includes('-b'))},
+ {id:'d_win', ch:27, q:'Zobraz všetko z journalu medzi <b>9:40</b> a <b>9:50</b> (všetky služby).', a:'sudo journalctl --since "09:40" --until "09:50"', w:'Časové okno okolo výpadku: kto čo menil.', check:m=>ran(m,'journalctl',e=>e.args.some(a=>/^0?9:40/.test(a)) && e.args.some(a=>/^0?9:50/.test(a)))},
+ {id:'d_prev', ch:27, q:'Zobraz posledných 20 riadkov z <b>predchádzajúceho</b> štartu servera.', a:'sudo journalctl -b -1 -n 20', w:'-b -1 = jeden štart dozadu.', check:m=>ran(m,'journalctl',e=>e.args.includes('-1') && e.args.includes('20'))},
+ {id:'d_boots', ch:27, q:'Vypíš zoznam štartov, ktoré pozná journal.', a:'journalctl --list-boots', w:'Ak je len jeden, journal nemusí byť trvalý.', check:m=>ran(m,'journalctl',e=>e.args.includes('--list-boots'))},
+ {id:'d_xeu', ch:27, q:'Zobraz koniec logu služby <code>agent</code> s vysvetlivkami systemd.', a:'sudo journalctl -xeu agent', w:'-x vysvetlivky, -e koniec, -u služba.', check:m=>ran(m,'journalctl',e=>e.args.some(a=>/^-[a-z]*x[a-z]*$/.test(a)) && e.args.includes('agent'))},
+ {id:'d_since1h', ch:27, q:'Zobraz z journalu všetko za poslednú hodinu.', a:'sudo journalctl --since "1 hour ago"', w:'Ide aj --since "-1h" alebo "-60min".', check:m=>ran(m,'journalctl',e=>e.args.some(a=>/^(-1h|-60min|-60m|1 hour ago|60 min ago|60 minutes ago)$/.test(a)))},
+ {id:'d_pid', ch:27, q:'Zobraz z journalu len záznamy procesu s PID <code>1203</code>.', a:'sudo journalctl _PID=1203', w:'Polia journalu: _PID, _COMM, _SYSTEMD_UNIT, _UID.', check:m=>ran(m,'journalctl',e=>e.args.includes('_PID=1203'))},
+ {id:'d_grep', ch:27, q:'Nájdi v journale služby <code>sshd</code> len riadky so slovom <code>Failed</code>.', a:'sudo journalctl -u sshd -g Failed', w:'-g (--grep) filtruje správy.', check:m=>ran(m,'journalctl',e=>e.args.includes('sshd') && (e.args.includes('-g')||e.args.includes('--grep')||e.args.some(a=>/^--grep=/.test(a))))},
+ {id:'d_avc', ch:27, q:'Zobraz nedávne SELinux zamietnutia z auditu.', a:'sudo ausearch -m AVC -ts recent', w:'recent = posledných 10 minút, today = dnes.', check:m=>ran(m,'ausearch',e=>e.args.includes('AVC'))},
+ {id:'d_dmesgT', ch:27, q:'Zobraz posledné správy jadra s čitateľným časom.', a:'sudo dmesg -T | tail', w:'-T prevedie čas od štartu na dátum.', check:m=>ran(m,'dmesg',e=>e.flags.has('T'))},
+ {id:'d_inodes', ch:27, q:'Zisti obsadenosť <b>inodov</b> na súborových systémoch.', a:'df -i', w:'Keď df -h ukazuje miesto, ale „No space left“.', check:m=>ran(m,'df',e=>e.flags.has('i'))},
+ {id:'d_secure', ch:27, q:'Spočítaj riadky so slovami <code>Failed password</code> v <code>/var/log/secure</code>.', a:'sudo grep -c "Failed password" /var/log/secure', w:'-c = počet riadkov.', check:m=>ran(m,'grep',e=>e.flags.has('c') && has(e,/Failed password/) && has(e,/\/var\/log\/secure/))},
+ {id:'d_tailf', ch:27, q:'Sleduj naživo nové záznamy služby <code>httpd</code> v journale.', a:'sudo journalctl -fu httpd', w:'-f follow. V praxi v druhom okne, kým v prvom skúšaš.', check:m=>ran(m,'journalctl',e=>e.args.some(a=>/^-[a-z]*f[a-z]*$/.test(a)) && e.args.includes('httpd'))}
+);
+
+/* ---------- úlohy na skutočnom serveri ---------- */
+window.LAB_TASKS[27] = [
+ {t:'Spusti „prvých 60 sekúnd“ (zoznam v kapitole) na svojom serveri a ku každému riadku si povedz, či je v norme.', ok:'Vieš, ako vyzerá zdravý server: aký load, koľko pamäte, ktoré služby.'},
+ {t:'V jednom okne <code>sudo journalctl -f</code>, v druhom sa skús prihlásiť cez SSH so zlým heslom a spusti <code>sudo -l</code>. Sleduj, čo pribudne. Potom <code>sudo grep -i failed /var/log/secure</code>.', ok:'Vidíš, ako sa udalosti zapisujú do journalu aj do /var/log/secure.'},
+ {t:'Reštartuj server a po štarte porovnaj <code>journalctl --list-boots</code>, <code>journalctl -b -1 -n 20</code> a <code>last -x | head</code>.', ok:'Vieš sa pozrieť do predchádzajúceho štartu.'},
+ {t:'Pokaz si web: <code>sudo mv ~/index.html /var/www/html/</code> (súbor vytvorený v domovskom adresári). Bez nápovedy nájdi dôkaz (error_log, ausearch) a oprav to.', ok:'Našiel si AVC s tcontext=user_home_t a opravil cez restorecon.'}
+];
+
+/* ---------- postup ---------- */
+window.RUNBOOKS.unshift({id:'neviem', t:'Neviem, čo sa deje (všeobecný postup)', sym:'čokoľvek: „nejde to“, „je to pomalé“, „od rána problém“', ch:[27], inc:[],
+ first: window.TRIAGE60.slice(0,7),
+ causes:[['Disk 100 %',['sudo du -xsh /var/* | sort -h','pozri postup Plný disk']],['Služba v --failed',['sudo journalctl -xeu SLUŽBA','systemctl status SLUŽBA']],['Chyby v journale',['prvá chyba v čase je príčina, ďalšie dôsledky']],['Nič zjavné',['sudo journalctl --since "ČAS_ZAČIATKU" --until "+10min"','sudo dnf history | head; last | head   # čo sa zmenilo?']]],
+ verify:['zopakuj príznak (curl, prihlásenie, …)','prežije to reštart?','zapíš, čo si zistil a spravil']});
 })();
 
 </script>
@@ -11800,6 +12286,234 @@ window.explainScript = function(text){
 };
 window.isScriptText = t => /\n/.test(t.trim()) || /^#!/.test(t.trim()) || /^\s*(for|while|until|if|case)\s.*\b(done|fi|esac)\s*$/.test(t.trim()) || /^\s*[A-Za-z_][\w-]*\s*\(\)\s*\{/.test(t);
 })();
+
+</script>
+
+<script>
+/* =========================================================
+   APP 6: Detektív (poruchy naslepo), Čítanie logov, Diagnostika
+   ========================================================= */
+S.det = S.det || {runs:[]};
+S.logt = S.logt || {};
+const INC_BY = id => window.INCIDENTS.find(x=>x.id===id);
+const LAYER = k => window.LAYERS.find(l=>l.k===k) || {t:k, sym:'', cmd:'', log:''};
+const fmtSec = s => `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+const pick = a => a[Math.floor(Math.random()*a.length)];
+
+TOOLS.splice(TOOLS.findIndex(t=>t.k==='incidenty')+1, 0,
+  {k:'detektiv', ic:'?!', t:'Detektív: porucha naslepo', d:'Len tiket od používateľa, náhodná porucha (aj dve naraz). Nájdi dôkaz v logoch a oprav.'},
+  {k:'citanie-logov', ic:'log', t:'Čítanie logov', d:'Skutočné výpisy logov: klikni na riadok, ktorý prezrádza príčinu.'},
+  {k:'diagnostika', ic:'⌕', t:'Diagnostika a mapa logov', d:'Prvých 60 sekúnd, „kde je problém?“ krok za krokom a kde je log ku ktorej službe.'});
+
+/* ---------- DETEKTÍV ---------- */
+function detView(){
+  const v = document.createElement('div'); v.className='page';
+  v.innerHTML = `<div class="chap"><div class="txt">
+    <div class="eyebrow">Nástroj · hľadanie chýb</div><h1>Detektív: porucha naslepo</h1>
+    <p class="lead" style="font-size:16px">Dostaneš len to, čo by ti napísal kolega alebo používateľ. Server je pokazený náhodnou poruchou, bez názvu a bez nápovedy. Postupuj metódou: <b>prvých 60 sekúnd → vrstva → dôkaz v logu → oprava → overenie</b>. Nápovedy si môžeš odomknúť, stoja body.</p>
+    <div class="parts" id="dmode"></div>
+    <div id="dcase"></div>
+    <div id="dstats"></div>
+  </div><aside id="side"></aside></div>`;
+  const side = $('#side',v);
+  let mode = S.det.mode || 'one';
+  let cur = null, term = null, timer = null;
+  const drawMode = ()=>{
+    $('#dmode',v).innerHTML = [['one','Jedna porucha'],['two','Dve poruchy naraz'],['mix','Náhodne']].map(([k,l])=>`<button class="btn sm${mode===k?' pri':''}" type="button" data-m="${k}">${l}</button>`).join('') + `<button class="btn pri" type="button" id="dnew" style="margin-left:auto">Nový tiket ▸</button>`;
+  };
+  const apply = m => { for (const id of cur.ids){ INC_BY(id).setup(m); } m.log = []; cur.h0 = m.history.length; };
+  const hintsFor = id => { const x = INC_BY(id), b = window.BLIND[id], L = LAYER(b.L); return [`Vrstva: <b>${esc(L.t)}</b>. Typický príznak: ${esc(L.sym)}.`, `Kde hľadať dôkaz: ${b.ev.map(e=>'<b>'+esc(e[1])+'</b>').join(', ')}. Prvé príkazy pre túto vrstvu: <code>${esc(L.cmd)}</code>`, esc(x.hints[1]||x.hints[0]), esc(x.hints[2]||'')]; };
+  function newCase(){
+    const two = mode==='two' || (mode==='mix' && Math.random()<0.4);
+    let ids;
+    if (two){ const p = pick(window.BLIND_PAIRS).split('+'); ids = Math.random()<0.5 ? p : [p[0], p[1]]; }
+    else { const all = Object.keys(window.BLIND).filter(id=>INC_BY(id)); const last = (S.det.runs[0]||{}).ids||[]; const pool = all.filter(id=>!last.includes(id)); ids = [pick(pool.length?pool:all)]; }
+    cur = {ids, t:ids.map(id=>pick(window.BLIND[id].t)), hints:0, t0:Date.now(), fixed:{}, done:false, gave:false};
+    side.innerHTML = '';
+    term = new Term(side, {title:'ssh admin@web01 · tiket', onRun:m=>check(m), onReset:t=>{ apply(t.m); motd(t); }});
+    apply(term.m); motd(term); term.prompt();
+    addTermFab(v, side);
+    drawCase();
+    clearInterval(timer); timer = setInterval(()=>{ const e = $('#dtime',v); if (!e || !document.body.contains(e)){ clearInterval(timer); return; } if (!cur.done) e.textContent = fmtSec(Math.round((Date.now()-cur.t0)/1000)); }, 1000);
+  }
+  function motd(t){ const fs = cur.ids.map(INC_BY).find(x=>x.motd); if (fs){ t.out.innerHTML=''; t.print(fs.motd); } }
+  const cmdsOf = m => m.history.slice(cur.h0||0);
+  function drawCase(){
+    const c = $('#dcase',v);
+    if (!cur){ c.innerHTML = `<div class="reveal" style="display:block;margin-top:14px">Vyber režim a daj <b>Nový tiket</b>. Pri „Dve poruchy naraz“ sú na serveri dva nezávislé problémy a dva tikety: ako v pondelok ráno.</div>`; return; }
+    const n = cur.ids.length, fixedN = Object.keys(cur.fixed).length;
+    const allH = cur.ids.flatMap(id=>hintsFor(id).map(h=>({id, h})));
+    const order = []; for (let k=0;k<4;k++) cur.ids.forEach(id=>order.push({id, h:hintsFor(id)[k], k}));
+    const shown = order.slice(0, cur.hints);
+    c.innerHTML = `${cur.t.map((t,i)=>`<div class="ticket"><div class="tk-h">${n>1?`Tiket ${i+1}`:'Tiket'}${n>1 && cur.fixed[cur.ids[i]]?' · <span style="color:var(--ok)">vyriešený</span>':''}</div><pre>${esc(t)}</pre></div>`).join('')}
+      <div class="parts"><span class="chip">čas <b id="dtime">${fmtSec(Math.round((Date.now()-cur.t0)/1000))}</b></span><span class="chip">príkazy ${cmdsOf(term.m).length}</span><span class="chip">nápovedy ${cur.hints}</span>${n>1?`<span class="chip ${fixedN===n?'ok':''}">opravené ${fixedN}/${n}</span>`:''}</div>
+      <details class="ctx-det" style="margin:10px 0"><summary>Prvých 60 sekúnd (ťahák)</summary><div class="ctx-cmds" style="margin-top:6px">${window.TRIAGE60.map(([k,d])=>`<div><code>${esc(k)}</code><span>${esc(d)}</span></div>`).join('')}</div></details>
+      <div id="dh">${shown.map((s,i)=>`<div class="reveal"><b>Nápoveda ${i+1}${n>1?` (tiket ${cur.ids.indexOf(s.id)+1})`:''}:</b> ${s.h}</div>`).join('')}</div>
+      ${cur.done ? '' : `<div class="parts" style="margin-top:8px"><button class="btn sm" type="button" id="dhint"${cur.hints>=order.length?' disabled':''}>Nápoveda (−15 bodov)</button><button class="btn sm" type="button" id="dgive">Vzdávam, ukáž riešenie</button></div>`}
+      <div id="dres"></div>`;
+    const hb = $('#dhint',v); if (hb) hb.addEventListener('click', ()=>{ cur.hints++; drawCase(); });
+    const gb = $('#dgive',v); if (gb) gb.addEventListener('click', ()=>{ cur.gave = true; finish(false); });
+    if (cur.done) debrief();
+  }
+  function check(m){
+    if (!cur || cur.done) { if (cur) drawCaseChipsOnly(); return; }
+    let changed = false;
+    for (const id of cur.ids){ let ok=false; try { ok = !!INC_BY(id).check(m); } catch(e){} if (ok && !cur.fixed[id]){ cur.fixed[id] = true; changed = true; if (cur.ids.length>1) toast(term, `Jedna porucha opravená (${Object.keys(cur.fixed).length}/${cur.ids.length}) ✓`); } }
+    if (cur.ids.every(id=>cur.fixed[id])) finish(true); else if (changed) drawCase(); else drawCaseChipsOnly();
+  }
+  function drawCaseChipsOnly(){ const ch = $('#dcase .parts',v); if (!ch || !cur) return; const sp = ch.querySelectorAll('.chip'); if (sp[1]) sp[1].textContent = 'príkazy '+cmdsOf(term.m).length; }
+  function evHit(id, cmds){ return window.BLIND[id].ev.map(([re, label])=>({label, hit: cmds.some(c=>re.test(c.replace(/^sudo\s+/,'')) || re.test(c))})); }
+  function score(cmds){
+    if (cur.gave) return 0;
+    const opt = cur.ids.reduce((s,id)=>{ const x = INC_BY(id); const sol = typeof x.sol==='function' ? x.sol(term.m) : x.sol; return s + (sol||[]).length; }, 0);
+    const extra = Math.max(0, cmds.length - Math.ceil(opt*2));
+    const evAll = cur.ids.flatMap(id=>evHit(id, cmds)); const evOk = evAll.filter(e=>e.hit).length;
+    let p = 100 - cur.hints*15 - extra*2 + (evOk===evAll.length ? 0 : -10);
+    return Math.max(5, Math.min(100, p));
+  }
+  function finish(ok){
+    cur.done = true; cur.ok = ok; cur.sec = Math.round((Date.now()-cur.t0)/1000);
+    const cmds = cmdsOf(term.m); cur.pts = ok ? score(cmds) : 0;
+    S.det.runs.unshift({d:(d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`)(new Date()), ids:cur.ids, ok, pts:cur.pts, sec:cur.sec, cmds:cmds.length, hints:cur.hints});
+    S.det.runs = S.det.runs.slice(0, 40); save();
+    if (ok) toast(term, `Vyriešené ✓ ${cur.pts} bodov`);
+    drawCase(); drawStats();
+  }
+  function debrief(){
+    const cmds = cmdsOf(term.m);
+    const blocks = cur.ids.map(id=>{
+      const x = INC_BY(id); const ev = evHit(id, cmds); const sol = typeof x.sol==='function' ? x.sol(term.m) : x.sol;
+      return `<div class="reveal" style="display:block;margin-top:12px"><b>${cur.ids.length>1?'Porucha: ':''}${esc(x.title)}</b> <span class="sub2">(${esc(LAYER(window.BLIND[id].L).t)})</span>
+        <p style="margin:8px 0">Dôkazy, ktoré si mal nájsť: ${ev.map(e=>`<span class="chip ${e.hit?'ok':''}" style="margin:2px">${e.hit?'✓':'✗'} ${esc(e.label)}</span>`).join(' ')}</p>
+        <div>${x.why}</div>
+        ${sol && sol.length ? `<p style="margin:10px 0 4px"><b>Ukážkový postup</b> (${sol.length} príkazov):</p><pre>${esc(sol.join('\n'))}</pre>` : ''}</div>`;
+    }).join('');
+    const mine = cmds.length ? `<details class="ctx-det" style="margin-top:12px"><summary>Tvoj postup (${cmds.length} príkazov)</summary><pre>${esc(cmds.join('\n'))}</pre></details>` : '';
+    $('#dres',v).innerHTML = `<div class="${cur.ok?'okbar':'reveal'}" style="display:block;margin-top:16px">${cur.ok ? `<b>✓ Vyriešené za ${fmtSec(cur.sec)}, ${cmds.length} príkazov, ${cur.hints} nápoved: ${cur.pts} bodov.</b>` : '<b>Riešenie</b> (bez bodov). Skús ho teraz spraviť v termináli a daj si potom nový tiket.'}</div>${blocks}${mine}
+      <div class="parts" style="margin-top:12px"><button class="btn pri" type="button" id="dnext">Ďalší tiket ▸</button></div>`;
+    $('#dnext',v).addEventListener('click', newCase);
+  }
+  function drawStats(){
+    const R = S.det.runs; const el = $('#dstats',v);
+    if (!R.length){ el.innerHTML=''; return; }
+    const solved = R.filter(r=>r.ok).length; const avg = Math.round(R.filter(r=>r.ok).reduce((s,r)=>s+r.pts,0)/Math.max(1,solved));
+    const by = {}; R.forEach(r=>r.ids.forEach(id=>{ const L = window.BLIND[id] ? window.BLIND[id].L : '?'; by[L] = by[L] || {n:0, pts:0}; by[L].n++; by[L].pts += r.ok ? r.pts : 0; }));
+    const weak = Object.entries(by).map(([k,o])=>[k, Math.round(o.pts/o.n), o.n]).sort((a,b)=>a[1]-b[1]);
+    el.innerHTML = `<div class="sect"><h2>Tvoje výsledky</h2>
+      <div class="parts"><span class="chip">pokusov ${R.length}</span><span class="chip ok">vyriešených ${solved}</span><span class="chip">priemer ${avg} b.</span></div>
+      <p class="sub" style="margin-top:10px">Vrstvy od najslabšej (priemerné body): ${weak.map(([k,p,n])=>`<span class="chip" style="margin:2px">${esc(LAYER(k).t)} ${p} b. (${n}×)</span>`).join(' ')}</p>
+      <div class="tbl" style="margin-top:8px"><table><thead><tr><th>Kedy</th><th>Poruchy</th><th>Výsledok</th><th>Čas</th><th>Príkazy</th></tr></thead><tbody>${R.slice(0,10).map(r=>`<tr><td>${esc(r.d.replace('T',' '))}</td><td>${r.ids.map(id=>esc((INC_BY(id)||{title:id}).title)).join(' + ')}</td><td>${r.ok?r.pts+' b.':'vzdané'}</td><td>${fmtSec(r.sec)}</td><td>${r.cmds}</td></tr>`).join('')}</tbody></table></div>
+      <button class="btn sm" type="button" id="dclr" style="margin-top:8px">Vymazať výsledky</button></div>`;
+    $('#dclr',v).addEventListener('click', ()=>{ if (confirm('Vymazať všetky výsledky Detektíva?')){ S.det.runs = []; save(); drawStats(); } });
+  }
+  drawMode();
+  $('#dmode',v).addEventListener('click', e=>{ const b = e.target.closest('[data-m]'); if (b){ mode = b.dataset.m; S.det.mode = mode; save(); drawMode(); } if (e.target.closest('#dnew')) newCase(); });
+  term = new Term(side, {title:'ssh admin@web01'}); term.print('(daj Nový tiket: server sa pokazí podľa náhodnej poruchy)\n','hint'); term.prompt();
+  addTermFab(v, side);
+  drawCase(); drawStats();
+  return v;
+}
+
+/* ---------- ČÍTANIE LOGOV ---------- */
+function logTrainView(){
+  const v = document.createElement('div'); v.className='page';
+  const L = window.LOG_TRAIN;
+  let i = Math.max(0, L.findIndex(x=>!S.logt[x.id])); if (i<0) i = 0;
+  v.innerHTML = `<div class="eyebrow">Nástroj · hľadanie chýb</div><h1>Čítanie logov</h1>
+    <p class="lead" style="font-size:16px">V praxi má výpis desiatky riadkov a dôležitý je jeden. Klikni na riadok, ktorý odpovedá na otázku. Šum (varovania, ktoré sú tam vždy) a dôsledky (riadky, ktoré vznikli kvôli príčine) sú chyták.</p>
+    <div class="parts" id="lprog"></div><div id="lbox"></div>`;
+  const prog = ()=>{ $('#lprog',v).innerHTML = L.map((x,k)=>`<button class="btn sm${k===i?' pri':''}" type="button" data-i="${k}" title="${esc(x.t)}">${S.logt[x.id]==='ok'?'✓':S.logt[x.id]?'·':''}${k+1}</button>`).join('') + `<span class="chip" style="margin-left:auto">na prvý pokus ${L.filter(x=>S.logt[x.id]==='ok').length}/${L.length}</span>`; };
+  function draw(){
+    const x = L[i]; let tries = 0, done = false;
+    $('#lbox',v).innerHTML = `<div class="sect"><h2>${i+1}. ${esc(x.t)}</h2><p class="sub">${esc(x.ask)}</p>
+      <div class="logbox"><div class="lb-cmd">$ ${esc(x.src)}</div>${x.lines.map((l,k)=>`<button class="lb-l" type="button" data-k="${k}">${esc(l)}</button>`).join('')}</div>
+      <div id="lres"></div>
+      <div class="parts" style="margin-top:12px"><button class="btn sm" type="button" id="lshow">Ukáž odpoveď</button><button class="btn pri" type="button" id="lnext" style="margin-left:auto">Ďalší ▸</button></div></div>`;
+    const reveal = (good)=>{ done = true; v.querySelectorAll('.lb-l').forEach(b=>{ if (x.key.includes(+b.dataset.k)) b.classList.add('ok'); }); $('#lres',v).innerHTML = `<div class="${good?'okbar':'reveal'}" style="display:block;margin-top:12px">${good?'<b>✓ Správne.</b> ':''}${x.why}${x.next?`<div style="margin-top:8px">Ďalší krok: <code>${esc(x.next)}</code></div>`:''}</div>`; };
+    $('#lbox',v).addEventListener('click', e=>{
+      const b = e.target.closest('.lb-l'); if (!b || done) return;
+      const k = +b.dataset.k;
+      if (x.key.includes(k)){ if (!S.logt[x.id] || S.logt[x.id]!=='ok') S.logt[x.id] = tries===0 ? 'ok' : 'ok2'; save(); prog(); reveal(true); }
+      else { tries++; b.classList.add('no'); if (!S.logt[x.id]) { S.logt[x.id] = 'try'; save(); prog(); } }
+    });
+    $('#lshow',v).addEventListener('click', ()=>{ if (!done){ if (!S.logt[x.id]){ S.logt[x.id]='try'; save(); prog(); } reveal(false); } });
+    $('#lnext',v).addEventListener('click', ()=>{ i = (i+1) % L.length; prog(); draw(); window.scrollTo(0, v.offsetTop); });
+  }
+  $('#lprog',v).addEventListener('click', e=>{ const b = e.target.closest('[data-i]'); if (b){ i = +b.dataset.i; prog(); draw(); } });
+  prog(); draw();
+  return v;
+}
+
+/* ---------- DIAGNOSTIKA ---------- */
+function diagView(){
+  const v = document.createElement('div'); v.className='page';
+  const T = window.TRIAGE_TREE;
+  v.innerHTML = `<div class="eyebrow">Nástroj · hľadanie chýb</div><h1>Diagnostika a mapa logov</h1>
+    <p class="lead" style="font-size:16px">Keď nevieš, kde začať. Metóda a journalctl do hĺbky sú v <a href="#kapitola-27">kapitole 27</a>, precvičíš ich v <a href="#detektiv">Detektívovi</a>.</p>
+    <div class="sect"><h2>1. Prvých 60 sekúnd</h2><p class="sub">Vždy, na každom serveri, skôr než začneš opravovať.</p>
+      <div class="ctx-sec"><div class="ctx-cmds">${window.TRIAGE60.map(([c,d])=>`<div><code>${esc(c)}</code><span>${esc(d)}</span></div>`).join('')}</div></div>
+      <div class="cmd" style="margin-top:8px"><div class="c">uptime; df -h; free -h; systemctl --failed; sudo journalctl -p err -b | tail -20</div></div></div>
+    <div class="sect"><h2>2. Kde je problém? (krok za krokom)</h2><div id="tree"></div></div>
+    <div class="sect"><h2>3. Vrstvy</h2><div class="tbl"><table><thead><tr><th>Vrstva</th><th>Príznak</th><th>Prvé príkazy</th><th>Log</th></tr></thead><tbody>${window.LAYERS.map(l=>`<tr><td><b>${esc(l.t)}</b></td><td>${esc(l.sym)}</td><td><code>${esc(l.cmd)}</code></td><td><code>${esc(l.log)}</code></td></tr>`).join('')}</tbody></table></div></div>
+    <div class="sect"><h2>4. Mapa logov</h2><input class="search" id="lmq" type="search" placeholder="Hľadaj službu alebo hlášku (sshd, 403, denied, cron…)" style="margin-bottom:12px"><div id="lmap"></div></div>`;
+  const path = ['start'];
+  const drawTree = ()=>{
+    const node = T[path[path.length-1]];
+    const crumbs = path.slice(1).map((k,i)=>{ const par = T[path[i]]; const o = (par.o||[]).find(x=>x[1]===k); return o ? o[0] : k; });
+    $('#tree',v).innerHTML = `<div class="ctx-sec">${crumbs.length?`<p class="sub2" style="margin:0 0 8px">${crumbs.map(esc).join(' → ')}</p>`:''}
+      ${node.q ? `<p style="margin:0 0 10px;font-weight:600">${node.q}</p><div class="parts">${node.o.map(([l,k])=>`<button class="btn sm" type="button" data-go="${k}">${esc(l)}</button>`).join('')}</div>`
+      : `<p style="margin:0 0 10px">${node.r}</p><div class="ctx-cmds">${node.c.map(c=>`<div><code>${esc(c)}</code></div>`).join('')}</div>${node.rb?`<p style="margin:10px 0 0">Podrobne: <a href="#postup-${node.rb}">postup „${esc((window.RUNBOOKS.find(r=>r.id===node.rb)||{t:node.rb}).t)}“</a></p>`:''}`}
+      ${path.length>1?`<div class="parts" style="margin-top:12px"><button class="btn sm" type="button" data-back="1">← Späť</button><button class="btn sm" type="button" data-back="all">Od začiatku</button></div>`:''}</div>`;
+  };
+  $('#tree',v).addEventListener('click', e=>{ const g = e.target.closest('[data-go]'), b = e.target.closest('[data-back]'); if (g){ path.push(g.dataset.go); drawTree(); } else if (b){ if (b.dataset.back==='all') path.length = 1; else path.pop(); drawTree(); } });
+  const drawMap = q=>{
+    const n = norm(q||'');
+    const M = window.LOG_MAP.filter(s=>!n || norm(JSON.stringify(s)).includes(n));
+    $('#lmap',v).innerHTML = M.length ? M.map(s=>`<div class="ctx-sec" style="margin-bottom:10px"><h3 style="text-transform:none;letter-spacing:0;font-size:16px;color:var(--text)">${esc(s.sv)} ${s.unit && s.unit!=='—'?`<span class="sub2">(${esc(s.unit)})</span>`:''}</h3>
+      <div class="ctx-cmds"><div><span>Log</span><code>${esc(s.log)}</code></div><div><span>Journal</span><code>${esc(s.j)}</code></div><div><span>Konfigurácia</span><code>${esc(s.cfg)}</code></div><div><span>Overenie</span><code>${esc(s.check)}</code></div></div>
+      ${s.errs.length?`<div class="tbl" style="margin-top:8px"><table><tbody>${s.errs.map(([e,d])=>`<tr><td><code>${esc(e)}</code></td><td>${esc(d)}</td></tr>`).join('')}</tbody></table></div>`:''}</div>`).join('') : '<p class="sub">Nič sa nenašlo.</p>';
+  };
+  $('#lmq',v).addEventListener('input', e=>drawMap(e.target.value));
+  drawTree(); drawMap('');
+  return v;
+}
+
+/* ---------- plán, vyhľadávanie, smerovanie ---------- */
+const _pti6 = planTaskInfo;
+planTaskInfo = function(t, i){
+  if (t.k==='det') return {href:'#detektiv', label:`Detektív: vyrieš ${t.n} ${plural(t.n,'poruchu','poruchy','porúch')} naslepo`, sub:'len tiket, bez nápovedy ak to ide', done: S.det.runs.filter(r=>r.ok).length >= t.need, min:20};
+  if (t.k==='logt') return {href:'#citanie-logov', label:'Čítanie logov: prejdi všetky výpisy', sub:'klikni na riadok s príčinou', done: window.LOG_TRAIN.every(x=>S.logt[x.id] && S.logt[x.id]!=='try'), min:20};
+  return _pti6(t, i);
+};
+(()=>{ const add = (d, ...t)=>{ if (PLAN[d-1] && !PLAN[d-1].some(x=>t.some(y=>JSON.stringify(x)===JSON.stringify(y)))) PLAN[d-1].push(...t); };
+  add(13, {k:'tool', t:'diagnostika', l:'Diagnostika: nauč sa prvých 60 sekúnd a prejdi rozhodovací strom'});
+  add(18, {k:'ch', n:27}); add(18, {k:'logt'});
+  add(23, {k:'det', n:2, need:2}); add(25, {k:'det', n:2, need:4}); add(28, {k:'det', n:3, need:7}); add(30, {k:'det', n:2, need:9}); })();
+const _buildIndex6 = buildIndex;
+buildIndex = function(){
+  const ix = _buildIndex6();
+  const add = e => { e.n = norm(e.text); e.nt = norm(e.title); ix.push(e); };
+  for (const s of window.LOG_MAP) add({kind:'Mapa logov', title:s.sv, sub:s.log+' · '+s.j, href:'diagnostika', text:[s.sv,s.unit,s.log,s.j,s.cfg,s.check].concat(s.errs.flat()).join(' ')});
+  for (const x of window.LOG_TRAIN) add({kind:'Čítanie logov', title:x.t, sub:x.ask, href:'citanie-logov', text:x.t+' '+x.ask+' '+x.lines.join(' ')+' '+strip(x.why)});
+  add({kind:'Nástroj', title:'Detektív: porucha naslepo', sub:'náhodné poruchy bez nápovedy', href:'detektiv', text:'detektiv porucha naslepo incident tiket hladanie chyb logy'});
+  return ix;
+};
+SEARCH_IX = null;
+const _route6 = route;
+route = function(){
+  const h = (location.hash||'#uvod').slice(1);
+  let node = null;
+  if (h==='detektiv') node = detView();
+  else if (h==='citanie-logov') node = logTrainView();
+  else if (h==='diagnostika') node = diagView();
+  if (!node) return _route6();
+  S.seen = S.seen||{}; if (!S.seen[h]){ S.seen[h]=true; save(); }
+  view.innerHTML=''; view.appendChild(node);
+  document.querySelectorAll('.rail a').forEach(a=>a.classList.toggle('on', a.dataset.k===h));
+  $('#rail').classList.remove('open'); refreshProgress(); window.scrollTo(0,0);
+};
+buildRail();
+route();
 
 </script>
 
